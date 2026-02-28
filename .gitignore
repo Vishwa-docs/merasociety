@@ -14,7 +14,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -128,7 +127,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+.env.local
 .venv
 env/
 venv/
@@ -179,3 +178,14 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+
+# My Files
+Planner/
+.DS_Store
+
+# Node / Next.js (merasociety)
+merasociety/node_modules/
+merasociety/.next/
+merasociety/.env.local
+merasociety/out/
