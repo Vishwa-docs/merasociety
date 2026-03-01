@@ -7,6 +7,13 @@ import {
   ChevronLeft,
   MessageCircle,
   Users,
+  Bot,
+  ShoppingBag,
+  Trophy,
+  Sparkles,
+  X,
+  Check,
+  Loader2,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
@@ -34,6 +41,31 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [showChannelList, setShowChannelList] = useState(true) // mobile toggle
+
+  // AI Agent states
+  const [aiBookingText, setAiBookingText] = useState('')
+  const [aiBookingLoading, setAiBookingLoading] = useState(false)
+  const [aiBookingResult, setAiBookingResult] = useState<{
+    success: boolean
+    agent_response: string
+  } | null>(null)
+  const [showBookingAgent, setShowBookingAgent] = useState(false)
+
+  // Chat-to-Listing detection
+  const [listingDetection, setListingDetection] = useState<{
+    message: string
+    data: {
+      title: string
+      description: string
+      category: string
+      price: number | null
+      tags: string[]
+    }
+  } | null>(null)
+  const [creatingListing, setCreatingListing] = useState(false)
+
+  // Channel sidebar previews (last message per channel)
+  const [channelPreviews, setChannelPreviews] = useState<Record<string, Message>>({})
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -66,6 +98,23 @@ export default function ChatPage() {
         const chs = (data || []) as Channel[]
         setChannels(chs)
         if (chs.length > 0) setActiveChannelId(chs[0].id)
+
+        // Fetch last message per channel for sidebar previews
+        const previews: Record<string, Message> = {}
+        await Promise.all(
+          chs.map(async (ch) => {
+            const { data: msgs } = await supabase
+              .from('messages')
+              .select('*, sender:members!sender_id(full_name, flat_number, avatar_url)')
+              .eq('channel_id', ch.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+            if (msgs && msgs.length > 0) {
+              previews[ch.id] = msgs[0] as Message
+            }
+          })
+        )
+        setChannelPreviews(previews)
       } catch (err) {
         console.error('Failed to load channels:', err)
         toast.error('Failed to load channels')
@@ -161,7 +210,30 @@ export default function ChatPage() {
       })
 
       if (error) throw error
-      // Realtime will push the new message
+
+      // Update sidebar preview for this channel with optimistic data
+      if (activeChannelId && currentMember) {
+        const optimisticMsg: Message = {
+          id: 'temp-' + Date.now(),
+          channel_id: activeChannelId,
+          sender_id: currentMember.id,
+          content: text,
+          created_at: new Date().toISOString(),
+          sender: {
+            full_name: currentMember.full_name,
+            flat_number: currentMember.flat_number,
+            avatar_url: currentMember.avatar_url,
+          } as Member,
+        }
+        setChannelPreviews((prev) => ({ ...prev, [activeChannelId]: optimisticMsg }))
+      }
+
+      // AI Agent: Detect listing-like messages in marketplace channels
+      const channelName = activeChannel?.name || ''
+      const isMarketplaceChannel = ['Buy & Sell', 'Services', 'Food Corner'].includes(channelName)
+      if (isMarketplaceChannel && text.length > 20) {
+        detectListing(text)
+      }
     } catch (err) {
       console.error('Failed to send message:', err)
       toast.error('Failed to send message')
@@ -169,6 +241,102 @@ export default function ChatPage() {
     } finally {
       setSending(false)
       textareaRef.current?.focus()
+    }
+  }
+
+  // ── AI Agent: Court Booking ──────────────────────────────────────
+  async function handleAiBooking() {
+    const text = aiBookingText.trim()
+    if (!text || !currentSociety?.id || !currentMember?.id) return
+
+    setAiBookingLoading(true)
+    setAiBookingResult(null)
+
+    try {
+      const res = await fetch('/api/ai/book-court', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          society_id: currentSociety.id,
+          member_id: currentMember.id,
+        }),
+      })
+
+      const data = await res.json()
+      setAiBookingResult({
+        success: data.success || false,
+        agent_response: data.agent_response || data.error || 'Something went wrong',
+      })
+
+      if (data.success) {
+        toast.success('Court booked via AI Agent!')
+        // Post a confirmation message in the Sports channel
+        const sportsChannel = channels.find((c: Channel) => c.name === 'Sports')
+        if (sportsChannel) {
+          const supabase = createClient()
+          await supabase.from('messages').insert({
+            channel_id: sportsChannel.id,
+            sender_id: currentMember.id,
+            content: `🤖 AI Agent booked: ${data.agent_response?.split('\n')[0] || 'Court booked!'}`,
+          })
+        }
+      }
+    } catch {
+      setAiBookingResult({
+        success: false,
+        agent_response: 'Failed to connect to booking agent. Please try again.',
+      })
+    } finally {
+      setAiBookingLoading(false)
+    }
+  }
+
+  // ── AI Agent: Detect Listing in Chat ─────────────────────────────
+  async function detectListing(text: string) {
+    try {
+      const res = await fetch('/api/ai/chat-to-listing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, action: 'detect' }),
+      })
+
+      const data = await res.json()
+      if (data.is_listing && data.confidence > 50 && data.data) {
+        setListingDetection({ message: text, data: data.data })
+      }
+    } catch {
+      // Silent fail — detection is a nice-to-have
+    }
+  }
+
+  // ── AI Agent: Create Listing from Chat ───────────────────────────
+  async function handleCreateListingFromChat() {
+    if (!listingDetection || !currentMember?.id || !currentSociety?.id) return
+
+    setCreatingListing(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('listings').insert({
+        society_id: currentSociety.id,
+        author_id: currentMember.id,
+        title: listingDetection.data.title,
+        description: listingDetection.data.description,
+        category: listingDetection.data.category,
+        price: listingDetection.data.price,
+        images: [],
+        tags: listingDetection.data.tags || [],
+        status: 'active',
+        ai_extracted: { source: 'chat_agent', original_message: listingDetection.message },
+      })
+
+      if (error) throw error
+      toast.success('Listing created from your chat message!')
+      setListingDetection(null)
+    } catch {
+      toast.error('Failed to create listing')
+    } finally {
+      setCreatingListing(false)
     }
   }
 
@@ -190,12 +358,11 @@ export default function ChatPage() {
 
   // ── Get last message for a channel (for sidebar preview) ─────────
   function getLastMessage(channelId: string): Message | undefined {
-    return [...messages]
-      .filter((m) => m.channel_id === channelId)
-      .sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )[0]
+    // For the active channel, check both live messages and cached preview
+    if (channelId === activeChannelId && messages.length > 0) {
+      return messages[messages.length - 1]
+    }
+    return channelPreviews[channelId]
   }
 
   // ── Format chat timestamp ────────────────────────────────────────
@@ -459,9 +626,108 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* AI Listing Detection Banner */}
+            {listingDetection && (
+              <div className="px-4 py-3 border-t border-purple-200 bg-purple-50">
+                <div className="flex items-start gap-3">
+                  <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600 shrink-0 mt-0.5">
+                    <ShoppingBag className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-purple-800">AI detected a listing in your message</p>
+                    <p className="text-xs text-purple-600 mt-0.5 truncate">
+                      &ldquo;{listingDetection.data.title}&rdquo;
+                      {listingDetection.data.price && ` — ₹${listingDetection.data.price.toLocaleString('en-IN')}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={handleCreateListingFromChat}
+                      disabled={creatingListing}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    >
+                      {creatingListing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Post to Bazaar
+                    </button>
+                    <button
+                      onClick={() => setListingDetection(null)}
+                      className="p-1 rounded-lg hover:bg-purple-100 text-purple-400"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI Court Booking Agent Panel */}
+            {showBookingAgent && (
+              <div className="px-4 py-3 border-t border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Bot className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs font-semibold text-amber-800">AI Court Booking Agent</span>
+                  <button
+                    onClick={() => { setShowBookingAgent(false); setAiBookingResult(null) }}
+                    className="ml-auto p-1 rounded-lg hover:bg-amber-100 text-amber-400"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-end gap-2">
+                  <input
+                    type="text"
+                    value={aiBookingText}
+                    onChange={(e) => setAiBookingText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAiBooking() }}
+                    placeholder='e.g. "Book badminton court tomorrow evening"'
+                    className="flex-1 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    disabled={aiBookingLoading}
+                  />
+                  <button
+                    onClick={handleAiBooking}
+                    disabled={!aiBookingText.trim() || aiBookingLoading}
+                    className={`shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                      aiBookingText.trim() && !aiBookingLoading
+                        ? 'bg-amber-600 text-white hover:bg-amber-700'
+                        : 'bg-amber-100 text-amber-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {aiBookingLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {aiBookingResult && (
+                  <div className={`mt-2 p-3 rounded-xl text-sm whitespace-pre-wrap ${
+                    aiBookingResult.success
+                      ? 'bg-green-50 text-green-800 border border-green-200'
+                      : 'bg-red-50 text-red-800 border border-red-200'
+                  }`}>
+                    {aiBookingResult.agent_response}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Message composer */}
             <div className="px-4 py-3 border-t border-gray-200 bg-white">
               <div className="flex items-end gap-2">
+                {/* AI Agent toggle button */}
+                {activeChannel?.name === 'Sports' && (
+                  <button
+                    onClick={() => setShowBookingAgent(!showBookingAgent)}
+                    className={`shrink-0 p-2.5 rounded-full transition-all duration-150 ${
+                      showBookingAgent
+                        ? 'bg-amber-100 text-amber-600'
+                        : 'bg-gray-100 text-gray-400 hover:bg-amber-50 hover:text-amber-500'
+                    }`}
+                    title="AI Court Booking Agent"
+                  >
+                    <Bot className="h-5 w-5" />
+                  </button>
+                )}
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}

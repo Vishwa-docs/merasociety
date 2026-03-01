@@ -484,7 +484,17 @@ on conflict (id) do nothing;
 insert into messages (id, channel_id, sender_id, content, created_at) values
   ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a02', 'Anyone up for badminton this evening? 6 PM?', now() - interval '1 day 8 hours'),
   ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a04', 'I''m in! Let me book Court A.', now() - interval '1 day 7 hours 30 minutes'),
-  ('00000000-0000-0000-0000-000000000412', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a01', 'Count me in too 🏸', now() - interval '1 day 7 hours')
+  ('00000000-0000-0000-0000-000000000412', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a01', 'Count me in too 🏸', now() - interval '1 day 7 hours'),
+  -- Recent Sports messages (sets up the AI booking demo naturally)
+  ('00000000-0000-0000-0000-000000000413', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a02', 'Just booked badminton at 6 PM today. Anyone up for doubles? 🏸', now() - interval '2 hours'),
+  ('00000000-0000-0000-0000-000000000414', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a04', 'I got the 7 PM slot right after yours! Let''s warm up together.', now() - interval '1 hour 45 minutes'),
+  ('00000000-0000-0000-0000-000000000415', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a01', 'Morning 7 AM was great today. The court is in excellent condition 👌', now() - interval '1 hour')
+on conflict (id) do nothing;
+
+-- Recent messages in Buy & Sell channel (sets up listing detection demo)
+insert into messages (id, channel_id, sender_id, content, created_at) values
+  ('00000000-0000-0000-0000-000000000416', '00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000a05', 'Does anyone need a study table? Mine is in great condition, barely used. Asking ₹3,000.', now() - interval '3 hours'),
+  ('00000000-0000-0000-0000-000000000417', '00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000a03', 'I have some kids'' books (age 5-8) to give away. First come first served!', now() - interval '2 hours 30 minutes')
 on conflict (id) do nothing;
 
 -- ── Bazaar Listings ──────────────────────────────────────────
@@ -576,6 +586,11 @@ insert into visitor_passes (id, society_id, created_by, visitor_name, visitor_ph
 on conflict (id) do nothing;
 
 -- ── Bookings ─────────────────────────────────────────────────
+-- Realistic bookings from residents. YOUR admin account (Jack Bright)
+-- has ZERO bookings — so the AI booking agent can find real available
+-- slots for you. Uses current_date so it's always fresh.
+
+-- Badminton Court A: Virat 6-7 PM, Shah Rukh 7-8 PM, Rajini 7-8 AM, Deepika 8-9 AM
 insert into bookings (id, court_id, member_id, society_id, date, start_time, end_time, status, created_at) values
   ('00000000-0000-0000-0000-000000000701',
    '00000000-0000-0000-0000-000000000101',
@@ -590,16 +605,62 @@ insert into bookings (id, court_id, member_id, society_id, date, start_time, end
    current_date, '19:00', '20:00', 'confirmed', now() - interval '1 day'),
 
   ('00000000-0000-0000-0000-000000000703',
-   '00000000-0000-0000-0000-000000000102',
+   '00000000-0000-0000-0000-000000000101',
    '00000000-0000-0000-0000-000000000a01',
    '00000000-0000-0000-0000-000000000001',
-   current_date + interval '1 day', '07:00', '08:00', 'confirmed', now() - interval '6 hours'),
+   current_date, '07:00', '08:00', 'confirmed', now() - interval '6 hours'),
 
   ('00000000-0000-0000-0000-000000000704',
+   '00000000-0000-0000-0000-000000000101',
+   '00000000-0000-0000-0000-000000000a03',
+   '00000000-0000-0000-0000-000000000001',
+   current_date, '08:00', '09:00', 'confirmed', now() - interval '5 hours'),
+
+  -- Tennis Court: Anushka 7-8 AM, Virat 5-6 PM
+  ('00000000-0000-0000-0000-000000000705',
+   '00000000-0000-0000-0000-000000000102',
+   '00000000-0000-0000-0000-000000000a05',
+   '00000000-0000-0000-0000-000000000001',
+   current_date, '07:00', '08:00', 'confirmed', now() - interval '4 hours'),
+
+  ('00000000-0000-0000-0000-000000000706',
+   '00000000-0000-0000-0000-000000000102',
+   '00000000-0000-0000-0000-000000000a02',
+   '00000000-0000-0000-0000-000000000001',
+   current_date, '17:00', '18:00', 'confirmed', now() - interval '3 hours'),
+
+  -- Table Tennis: Deepika 5:00-5:30 PM, Shah Rukh 5:30-6:00 PM
+  ('00000000-0000-0000-0000-000000000707',
    '00000000-0000-0000-0000-000000000104',
    '00000000-0000-0000-0000-000000000a03',
    '00000000-0000-0000-0000-000000000001',
-   current_date - interval '1 day', '17:00', '17:30', 'completed', now() - interval '2 days')
+   current_date, '17:00', '17:30', 'confirmed', now() - interval '2 hours'),
+
+  ('00000000-0000-0000-0000-000000000708',
+   '00000000-0000-0000-0000-000000000104',
+   '00000000-0000-0000-0000-000000000a04',
+   '00000000-0000-0000-0000-000000000001',
+   current_date, '17:30', '18:00', 'confirmed', now() - interval '2 hours'),
+
+  -- Tomorrow: Rajini 6-7 AM, Virat 6-7 PM (for "book badminton tomorrow" demo)
+  ('00000000-0000-0000-0000-000000000709',
+   '00000000-0000-0000-0000-000000000101',
+   '00000000-0000-0000-0000-000000000a01',
+   '00000000-0000-0000-0000-000000000001',
+   current_date + 1, '06:00', '07:00', 'confirmed', now() - interval '1 hour'),
+
+  ('00000000-0000-0000-0000-000000000710',
+   '00000000-0000-0000-0000-000000000101',
+   '00000000-0000-0000-0000-000000000a02',
+   '00000000-0000-0000-0000-000000000001',
+   current_date + 1, '18:00', '19:00', 'confirmed', now() - interval '1 hour'),
+
+  -- Yesterday (completed — historical context)
+  ('00000000-0000-0000-0000-000000000711',
+   '00000000-0000-0000-0000-000000000104',
+   '00000000-0000-0000-0000-000000000a03',
+   '00000000-0000-0000-0000-000000000001',
+   current_date - 1, '17:00', '17:30', 'completed', now() - interval '2 days')
 on conflict (id) do nothing;
 
 -- ── Notifications ────────────────────────────────────────────
