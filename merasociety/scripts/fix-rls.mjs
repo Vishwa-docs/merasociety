@@ -32,7 +32,13 @@ for (const line of envContent.split('\n')) {
   }
 }
 
-const projectRef = 'aohdqwwahunyqwtyrdyi'
+// Extract project ref from Supabase URL (e.g. https://xyz.supabase.co → xyz)
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || ''
+const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || ''
+if (!projectRef) {
+  console.error('❌ Could not extract project ref from NEXT_PUBLIC_SUPABASE_URL in .env.local')
+  process.exit(1)
+}
 const dbPassword = process.env.DB_PASSWORD || env.SUPABASE_DB_PASSWORD || env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!dbPassword) {
