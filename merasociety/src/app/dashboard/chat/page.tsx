@@ -166,6 +166,14 @@ export default function ChatPage() {
           filter: `channel_id=eq.${activeChannelId}`,
         },
         async (payload) => {
+          const newId = payload.new.id
+
+          // Deduplicate: skip if already in the list (from optimistic insert)
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newId)) return prev
+            return prev // will be replaced below
+          })
+
           // Fetch sender info for the new message
           const { data } = await supabase
             .from('members')
@@ -178,10 +186,20 @@ export default function ChatPage() {
             sender: data,
           } as Message
 
-          setMessages((prev) => [...prev, newMsg])
+          setMessages((prev) => {
+            // Replace optimistic message or deduplicate
+            const withoutOptimistic = prev.filter(
+              (m) => m.id !== newId && !m.id.startsWith('optimistic-')
+            )
+            return [...withoutOptimistic, newMsg]
+          })
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Realtime channel error — will fall back to optimistic updates')
+        }
+      })
 
     return () => {
       supabase.removeChannel(subscription)
@@ -201,6 +219,29 @@ export default function ChatPage() {
     setSending(true)
     setComposerText('')
 
+    // Create optimistic message that renders immediately
+    const optimisticId = 'optimistic-' + Date.now()
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      channel_id: activeChannelId,
+      sender_id: currentMember?.id || '',
+      content: text,
+      created_at: new Date().toISOString(),
+      sender: currentMember ? {
+        full_name: currentMember.full_name,
+        flat_number: currentMember.flat_number,
+        avatar_url: currentMember.avatar_url,
+      } as Member : undefined,
+    }
+
+    // Show message immediately in the chat
+    setMessages((prev) => [...prev, optimisticMsg])
+
+    // Update sidebar preview
+    if (activeChannelId && currentMember) {
+      setChannelPreviews((prev) => ({ ...prev, [activeChannelId]: optimisticMsg }))
+    }
+
     try {
       const supabase = createClient()
       const { error } = await supabase.from('messages').insert({
@@ -211,23 +252,6 @@ export default function ChatPage() {
 
       if (error) throw error
 
-      // Update sidebar preview for this channel with optimistic data
-      if (activeChannelId && currentMember) {
-        const optimisticMsg: Message = {
-          id: 'temp-' + Date.now(),
-          channel_id: activeChannelId,
-          sender_id: currentMember.id,
-          content: text,
-          created_at: new Date().toISOString(),
-          sender: {
-            full_name: currentMember.full_name,
-            flat_number: currentMember.flat_number,
-            avatar_url: currentMember.avatar_url,
-          } as Member,
-        }
-        setChannelPreviews((prev) => ({ ...prev, [activeChannelId]: optimisticMsg }))
-      }
-
       // AI Agent: Detect listing-like messages in marketplace channels
       const channelName = activeChannel?.name || ''
       const isMarketplaceChannel = ['Buy & Sell', 'Services', 'Food Corner'].includes(channelName)
@@ -237,6 +261,8 @@ export default function ChatPage() {
     } catch (err) {
       console.error('Failed to send message:', err)
       toast.error('Failed to send message')
+      // Remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
       setComposerText(text) // restore text on failure
     } finally {
       setSending(false)

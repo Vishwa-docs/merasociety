@@ -362,6 +362,10 @@ $$ language plpgsql;
 -- ============================================================
 -- REALTIME
 -- ============================================================
+-- Enable REPLICA IDENTITY FULL so realtime filters (e.g. channel_id=eq.xxx) work
+alter table messages replica identity full;
+alter table notifications replica identity full;
+
 -- Enable realtime for messages (chat)
 do $$ begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then

@@ -25,26 +25,40 @@ interface BookingRow {
   member_id: string
 }
 
+// Get current time in IST (Asia/Kolkata, UTC+5:30)
+function nowIST(): Date {
+  const utc = new Date()
+  // Shift by +5:30 so .getHours()/.getDate() etc. return IST values
+  return new Date(utc.getTime() + (5.5 * 60 * 60 * 1000))
+}
+
+function toISTDateString(d: Date): string {
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function resolveDateFromIntent(dateStr: string | null): string {
-  const now = new Date()
+  const now = nowIST()
   if (!dateStr || dateStr === 'today') {
-    return now.toISOString().split('T')[0]
+    return toISTDateString(now)
   }
   if (dateStr === 'tomorrow') {
-    now.setDate(now.getDate() + 1)
-    return now.toISOString().split('T')[0]
+    now.setUTCDate(now.getUTCDate() + 1)
+    return toISTDateString(now)
   }
   // Day of week
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   const dayIndex = days.indexOf(dateStr.toLowerCase())
   if (dayIndex >= 0) {
-    const currentDay = now.getDay()
+    const currentDay = now.getUTCDay()
     let daysAhead = dayIndex - currentDay
     if (daysAhead <= 0) daysAhead += 7
-    now.setDate(now.getDate() + daysAhead)
-    return now.toISOString().split('T')[0]
+    now.setUTCDate(now.getUTCDate() + daysAhead)
+    return toISTDateString(now)
   }
-  return new Date().toISOString().split('T')[0]
+  return toISTDateString(nowIST())
 }
 
 function resolveTimePreference(pref: string | null): { minHour: number; maxHour: number } {
@@ -190,16 +204,19 @@ export async function POST(request: NextRequest) {
       if (memberHours >= court.max_daily_hours_per_flat) continue
 
       // Filter slots by time preference and past time
-      const now = new Date()
-      const isToday = resolvedDate === now.toISOString().split('T')[0]
+      const now = nowIST()
+      const todayIST = toISTDateString(now)
+      const isToday = resolvedDate === todayIST
+      const currentISTHour = now.getUTCHours()
+      const currentISTMinute = now.getUTCMinutes()
 
       for (const slot of slots) {
         const slotHour = parseInt(slot.start.split(':')[0])
 
-        // Skip past slots
+        // Skip past slots (using IST)
         if (isToday) {
-          const slotEnd = new Date(`${resolvedDate}T${slot.end}:00`)
-          if (slotEnd <= now) continue
+          const [eh, em] = slot.end.split(':').map(Number)
+          if (eh < currentISTHour || (eh === currentISTHour && em <= currentISTMinute)) continue
         }
 
         // Skip booked slots
@@ -227,14 +244,17 @@ export async function POST(request: NextRequest) {
         const slots = generateSlots(court.open_time, court.close_time, court.slot_duration_minutes)
         const courtBookings = bookings.filter(b => b.court_id === court.id)
         const bookedTimes = new Set(courtBookings.map(b => b.start_time))
-        const now = new Date()
-        const isToday = resolvedDate === now.toISOString().split('T')[0]
+        const now = nowIST()
+        const todayIST = toISTDateString(now)
+        const isToday = resolvedDate === todayIST
+        const currentISTHour = now.getUTCHours()
+        const currentISTMinute = now.getUTCMinutes()
 
         for (const slot of slots) {
           if (bookedTimes.has(slot.start)) continue
           if (isToday) {
-            const slotEnd = new Date(`${resolvedDate}T${slot.end}:00`)
-            if (slotEnd <= now) continue
+            const [eh, em] = slot.end.split(':').map(Number)
+            if (eh < currentISTHour || (eh === currentISTHour && em <= currentISTMinute)) continue
           }
           allAvailable.push({ court: court.name, slot: `${slot.start}-${slot.end}`, sport: court.sport })
           if (allAvailable.length >= 5) break
