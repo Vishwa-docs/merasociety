@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   MessageSquarePlus,
   Bug,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppStore } from '@/lib/store'
+import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -25,39 +26,6 @@ const FEEDBACK_TYPE_OPTIONS = [
   { value: 'feature', label: 'Feature Request' },
   { value: 'general', label: 'General Feedback' },
   { value: 'complaint', label: 'Complaint' },
-]
-
-const DEMO_FEEDBACK: Feedback[] = [
-  {
-    id: 'fb-1',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    member_id: 'demo-member-2',
-    type: 'bug',
-    title: 'Chat page not loading on mobile',
-    description: 'When I open the chat page on my phone (iPhone 14), the message list does not load and shows a blank screen.',
-    status: 'in_progress',
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-  {
-    id: 'fb-2',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    member_id: 'demo-member-2',
-    type: 'feature',
-    title: 'Add dark mode support',
-    description: 'It would be great to have a dark mode toggle in settings for nighttime usage.',
-    status: 'open',
-    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-  },
-  {
-    id: 'fb-3',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    member_id: 'demo-member-2',
-    type: 'complaint',
-    title: 'Noise from parking area at night',
-    description: 'There has been consistent noise from the parking area between 11 PM and 1 AM. Requesting admin to look into it.',
-    status: 'resolved',
-    created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
-  },
 ]
 
 function getTypeIcon(type: FeedbackType) {
@@ -106,13 +74,34 @@ function getStatusLabel(status: FeedbackStatus) {
 }
 
 export default function FeedbackPage() {
-  const { isDemoMode } = useAppStore()
+  const { currentMember, currentSociety } = useAppStore()
 
-  const [feedbackList, setFeedbackList] = useState<Feedback[]>(DEMO_FEEDBACK)
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([])
   const [type, setType] = useState<FeedbackType>('general')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const fetchFeedback = async () => {
+      if (!currentSociety) return
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('feedback')
+          .select('*')
+          .eq('society_id', currentSociety.id)
+          .order('created_at', { ascending: false })
+        if (!error && data) {
+          setFeedbackList(data as Feedback[])
+        }
+      } catch (err) {
+        console.error('Failed to fetch feedback:', err)
+        toast.error('Failed to load feedback')
+      }
+    }
+    fetchFeedback()
+  }, [currentSociety])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -120,23 +109,31 @@ export default function FeedbackPage() {
       toast.error('Please enter a title')
       return
     }
+    if (!currentSociety || !currentMember) {
+      toast.error('Society or member information not available')
+      return
+    }
 
     setSubmitting(true)
     try {
-      await new Promise((r) => setTimeout(r, 400))
+      const supabase = createClient()
 
-      const newFeedback: Feedback = {
-        id: `fb-${Date.now()}`,
-        society_id: '00000000-0000-0000-0000-000000000001',
-        member_id: 'demo-member-2',
-        type,
-        title: title.trim(),
-        description: description.trim() || null,
-        status: 'open',
-        created_at: new Date().toISOString(),
-      }
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert({
+          society_id: currentSociety.id,
+          member_id: currentMember.id,
+          type,
+          title: title.trim(),
+          description: description.trim() || null,
+          status: 'open',
+        })
+        .select()
+        .single()
 
-      setFeedbackList((prev) => [newFeedback, ...prev])
+      if (error) throw error
+
+      setFeedbackList((prev) => [data as Feedback, ...prev])
       setTitle('')
       setDescription('')
       setType('general')

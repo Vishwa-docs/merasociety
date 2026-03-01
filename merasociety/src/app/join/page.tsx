@@ -1,14 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { Building2, KeyRound, User, Home, Phone, Search, CheckCircle, Clock } from 'lucide-react'
+import { Building2, KeyRound, User, Home, Phone, Search, CheckCircle, Clock, MapPin, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import type { Society } from '@/lib/types'
+
+interface PublicSociety {
+  id: string
+  name: string
+  address: string | null
+}
 
 interface MemberStatus {
   status: 'pending' | 'approved' | 'rejected' | 'suspended'
@@ -26,6 +32,27 @@ export default function JoinPage() {
   const [fullName, setFullName] = useState('')
   const [flatNumber, setFlatNumber] = useState('')
   const [phone, setPhone] = useState('')
+
+  // Society browser state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [publicSocieties, setPublicSocieties] = useState<PublicSociety[]>([])
+  const [browseLoading, setBrowseLoading] = useState(true)
+
+  // Load public societies list on mount
+  useEffect(() => {
+    async function loadSocieties() {
+      try {
+        const res = await fetch('/api/societies')
+        const data = await res.json()
+        if (data.societies) setPublicSocieties(data.societies)
+      } catch {
+        // Silently fail — the invite code form still works
+      } finally {
+        setBrowseLoading(false)
+      }
+    }
+    loadSocieties()
+  }, [])
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,9 +152,15 @@ export default function JoinPage() {
     }
   }
 
+  const filteredSocieties = publicSocieties.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.address && s.address.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-cyan-50 to-white px-4 py-12">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
@@ -159,6 +192,57 @@ export default function JoinPage() {
             </Button>
           </form>
         </Card>
+
+        {/* Browse Societies */}
+        {!society && (
+          <Card className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Or browse available societies</h3>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or address…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
+            {browseLoading ? (
+              <div className="flex items-center justify-center py-6 text-gray-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : filteredSocieties.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-4">No societies found</p>
+            ) : (
+              <ul className="space-y-2 max-h-60 overflow-y-auto">
+                {filteredSocieties.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      className="w-full text-left rounded-lg border border-gray-100 p-3 hover:border-teal-300 hover:bg-teal-50/50 transition-colors"
+                      onClick={() => {
+                        toast('Ask your society admin for the invite code', { icon: '🔑' })
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Building2 className="h-4 w-4 text-teal-600 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
+                          {s.address && (
+                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{s.address}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
 
         {/* Society Found */}
         {society && (

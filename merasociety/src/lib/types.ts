@@ -204,15 +204,9 @@ export interface AIMatchResult {
   reason: string
 }
 
-// Demo data types
-export interface DemoMember extends Member {
-  email: string
-}
-
 // App state
 export interface AppState {
   currentMember: Member | null
   currentSociety: Society | null
   isLoading: boolean
-  isDemoMode: boolean
 }

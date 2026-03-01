@@ -11,22 +11,19 @@ import {
   Trash2,
   Sparkles,
   Loader2,
-  Copy,
   Phone,
   Tag,
   Calendar,
   IndianRupee,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import type { Listing } from '@/lib/types'
 import {
   formatDate,
   getCategoryLabel,
   getCategoryIcon,
-  getStatusColor,
-  cn,
 } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -37,8 +34,7 @@ import { Modal } from '@/components/ui/Modal'
 export default function ListingDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const listingId = params.id as string
 
@@ -50,39 +46,25 @@ export default function ListingDetailPage() {
   const [markingSold, setMarkingSold] = useState(false)
 
   useEffect(() => {
-    demoStore.initialize()
-  }, [demoStore])
-
-  useEffect(() => {
     fetchListing()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listingId, isDemoMode])
+  }, [listingId])
 
   async function fetchListing() {
     setLoading(true)
     try {
-      if (isDemoMode) {
-        const found = demoStore.listings.find(
-          (l) => (l as Record<string, unknown>).id === listingId
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('listings')
+        .select(
+          '*, author:members!listings_author_id_fkey(id,full_name,flat_number,avatar_url,role,phone)'
         )
-        if (found) {
-          setListing(found as unknown as Listing)
-          fetchSimilar(found as unknown as Listing)
-        }
-      } else {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('listings')
-          .select(
-            '*, author:members!listings_author_id_fkey(id,full_name,flat_number,avatar_url,role,phone)'
-          )
-          .eq('id', listingId)
-          .single()
+        .eq('id', listingId)
+        .single()
 
-        if (error) throw error
-        setListing(data as unknown as Listing)
-        fetchSimilar(data as unknown as Listing)
-      }
+      if (error) throw error
+      setListing(data as unknown as Listing)
+      fetchSimilar(data as unknown as Listing)
     } catch {
       toast.error('Listing not found')
       router.push('/dashboard/bazaar')
@@ -93,24 +75,19 @@ export default function ListingDetailPage() {
 
   async function fetchSimilar(current: Listing) {
     try {
-      let allListings: Listing[]
-      if (isDemoMode) {
-        allListings = demoStore.listings as unknown as Listing[]
-      } else {
-        const supabase = createClient()
-        const { data } = await supabase
-          .from('listings')
-          .select(
-            '*, author:members!listings_author_id_fkey(id,full_name,flat_number,avatar_url,role)'
-          )
-          .eq('society_id', currentSociety?.id ?? '')
-          .eq('status', 'active')
-          .neq('id', current.id)
-          .eq('category', current.category)
-          .limit(4)
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('listings')
+        .select(
+          '*, author:members!listings_author_id_fkey(id,full_name,flat_number,avatar_url,role)'
+        )
+        .eq('society_id', currentSociety?.id || '')
+        .eq('status', 'active')
+        .neq('id', current.id)
+        .eq('category', current.category)
+        .limit(4)
 
-        allListings = (data as unknown as Listing[]) || []
-      }
+      const allListings = (data as unknown as Listing[]) || []
 
       const similar = allListings
         .filter(
@@ -128,29 +105,15 @@ export default function ListingDetailPage() {
     if (!listing) return
     setMarkingSold(true)
     try {
-      if (isDemoMode) {
-        const idx = demoStore.listings.findIndex(
-          (l) => (l as Record<string, unknown>).id === listing.id
-        )
-        if (idx !== -1) {
-          const updated = { ...demoStore.listings[idx], status: 'sold' } as Record<string, unknown>
-          const newListings = [...demoStore.listings]
-          newListings[idx] = updated
-          // Simply re-fetch
-          setListing({ ...listing, status: 'sold' })
-        }
-        toast.success('Listing marked as sold')
-      } else {
-        const supabase = createClient()
-        const { error } = await supabase
-          .from('listings')
-          .update({ status: 'sold', updated_at: new Date().toISOString() })
-          .eq('id', listing.id)
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('listings')
+        .update({ status: 'sold', updated_at: new Date().toISOString() })
+        .eq('id', listing.id)
 
-        if (error) throw error
-        setListing({ ...listing, status: 'sold' })
-        toast.success('Listing marked as sold')
-      }
+      if (error) throw error
+      setListing({ ...listing, status: 'sold' })
+      toast.success('Listing marked as sold')
     } catch {
       toast.error('Failed to update listing')
     } finally {
@@ -162,20 +125,15 @@ export default function ListingDetailPage() {
     if (!listing) return
     setDeleting(true)
     try {
-      if (isDemoMode) {
-        toast.success('Listing deleted')
-        router.push('/dashboard/bazaar')
-      } else {
-        const supabase = createClient()
-        const { error } = await supabase
-          .from('listings')
-          .delete()
-          .eq('id', listing.id)
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('listings')
+        .delete()
+        .eq('id', listing.id)
 
-        if (error) throw error
-        toast.success('Listing deleted')
-        router.push('/dashboard/bazaar')
-      }
+      if (error) throw error
+      toast.success('Listing deleted')
+      router.push('/dashboard/bazaar')
     } catch {
       toast.error('Failed to delete listing')
     } finally {

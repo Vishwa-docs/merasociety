@@ -140,10 +140,10 @@ export default function LandingPage() {
               <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
-              href="/dashboard"
+              href="/auth/login"
               className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-all"
             >
-              Try Demo
+              Sign In
             </Link>
           </div>
         </div>
@@ -230,10 +230,10 @@ export default function LandingPage() {
               <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
-              href="/dashboard"
+              href="/auth/login"
               className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-6 py-3 text-base font-semibold text-white hover:bg-white/10 transition-colors"
             >
-              Try Demo
+              Sign In
             </Link>
           </div>
         </div>
@@ -248,16 +248,15 @@ export default function LandingPage() {
               <span className="font-semibold text-gray-900">MeraSociety</span>
             </div>
             <p className="text-sm text-gray-500">
-              Built with Next.js, Supabase &amp; AI — for the{' '}
+              Built for Apartment Complexes. By{' '}
               <a
-                href="https://dev.to"
+                href="https://www.github.com/Vishwa-docs"
                 className="text-teal-600 hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Dev.to
-              </a>{' '}
-              Weekend Build Hackathon.
+                JackBright
+              </a>
             </p>
           </div>
         </div>

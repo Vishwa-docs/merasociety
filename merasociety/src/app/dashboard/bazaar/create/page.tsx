@@ -1,19 +1,18 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Sparkles,
   Send,
   X,
-  Loader2,
   Wand2,
   PenLine,
   Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import type { ListingCategory } from '@/lib/types'
 import { Button } from '@/components/ui/Button'
@@ -33,8 +32,7 @@ const CATEGORY_OPTIONS = [
 
 export default function CreateListingPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [mode, setMode] = useState<Mode>('smart')
 
@@ -53,10 +51,6 @@ export default function CreateListingPage() {
   const [contactInfo, setContactInfo] = useState('')
 
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    demoStore.initialize()
-  }, [demoStore])
 
   async function handleExtract() {
     if (!rawText.trim()) {
@@ -130,9 +124,15 @@ export default function CreateListingPage() {
 
     setSubmitting(true)
     try {
+      if (!currentMember?.id || !currentSociety?.id) {
+        toast.error('Unable to determine your membership. Please reload.')
+        setSubmitting(false)
+        return
+      }
+
       const listingData = {
-        society_id: currentSociety?.id || '00000000-0000-0000-0000-000000000001',
-        author_id: currentMember?.id || 'demo-member-2',
+        society_id: currentSociety.id,
+        author_id: currentMember.id,
         title: title.trim(),
         description: description.trim() || null,
         category,
@@ -144,24 +144,9 @@ export default function CreateListingPage() {
         ai_extracted: extracted ? { source: 'smart_mode', raw_text: rawText } : null,
       }
 
-      if (isDemoMode) {
-        const demoListing = {
-          id: `demo-listing-${Date.now()}`,
-          ...listingData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          author: {
-            full_name: currentMember?.full_name || 'Demo User',
-            flat_number: currentMember?.flat_number || 'A-101',
-            role: currentMember?.role || 'resident',
-          },
-        }
-        demoStore.addItem('listings', demoListing)
-      } else {
-        const supabase = createClient()
-        const { error } = await supabase.from('listings').insert(listingData)
-        if (error) throw error
-      }
+      const supabase = createClient()
+      const { error } = await supabase.from('listings').insert(listingData)
+      if (error) throw error
 
       toast.success('Listing posted successfully!')
       router.push('/dashboard/bazaar')

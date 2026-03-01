@@ -12,7 +12,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, getPriorityColor } from '@/lib/utils'
 import type { Announcement, AnnouncementComment } from '@/lib/types'
@@ -35,8 +35,7 @@ export default function AnnouncementDetailPage() {
   const router = useRouter()
   const id = params.id as string
 
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember } = useAppStore()
 
   const [announcement, setAnnouncement] = useState<Announcement | null>(null)
   const [comments, setComments] = useState<AnnouncementComment[]>([])
@@ -53,48 +52,6 @@ export default function AnnouncementDetailPage() {
   // Fetch announcement
   const fetchAnnouncement = useCallback(async () => {
     setLoading(true)
-
-    if (isDemoMode) {
-      if (!demoStore.initialized) demoStore.initialize()
-      const ann = demoStore.announcements.find(
-        (a) => (a as unknown as Announcement).id === id
-      ) as unknown as Announcement | undefined
-
-      if (ann) {
-        setAnnouncement(ann)
-        // Demo comments
-        setComments([
-          {
-            id: 'demo-comment-1',
-            announcement_id: id,
-            author_id: 'demo-member-2',
-            content: 'Thanks for the update! Will store water accordingly.',
-            created_at: new Date(Date.now() - 1800000).toISOString(),
-            author: {
-              full_name: 'Priya Sharma',
-              flat_number: 'B-302',
-              role: 'resident',
-              avatar_url: null,
-            } as unknown as import('@/lib/types').Member,
-          },
-          {
-            id: 'demo-comment-2',
-            announcement_id: id,
-            author_id: 'demo-member-3',
-            content: 'Will the tanker be available for all towers?',
-            created_at: new Date(Date.now() - 900000).toISOString(),
-            author: {
-              full_name: 'Anita Desai',
-              flat_number: 'C-501',
-              role: 'resident',
-              avatar_url: null,
-            } as unknown as import('@/lib/types').Member,
-          },
-        ])
-      }
-      setLoading(false)
-      return
-    }
 
     try {
       const supabase = createClient()
@@ -142,7 +99,7 @@ export default function AnnouncementDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, isDemoMode, currentMember?.id, demoStore])
+  }, [id, currentMember?.id])
 
   useEffect(() => {
     fetchAnnouncement()
@@ -156,26 +113,6 @@ export default function AnnouncementDetailPage() {
     setSubmittingComment(true)
 
     try {
-      if (isDemoMode) {
-        const comment: AnnouncementComment = {
-          id: `demo-comment-${Date.now()}`,
-          announcement_id: id,
-          author_id: currentMember?.id || 'demo-member-1',
-          content: newComment.trim(),
-          created_at: new Date().toISOString(),
-          author: {
-            full_name: currentMember?.full_name || 'Demo User',
-            flat_number: currentMember?.flat_number || 'A-101',
-            role: currentMember?.role || 'resident',
-            avatar_url: null,
-          } as unknown as import('@/lib/types').Member,
-        }
-        setComments((prev) => [...prev, comment])
-        setNewComment('')
-        toast.success('Comment added!')
-        return
-      }
-
       const supabase = createClient()
       const { error } = await supabase.from('announcement_comments').insert({
         announcement_id: id,
@@ -200,12 +137,6 @@ export default function AnnouncementDetailPage() {
   async function handleDelete() {
     setDeleting(true)
     try {
-      if (isDemoMode) {
-        toast.success('Announcement deleted')
-        router.push('/dashboard/announcements')
-        return
-      }
-
       const supabase = createClient()
       const { error } = await supabase
         .from('announcements')

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Bell,
   BellOff,
   Megaphone,
   ShieldCheck,
@@ -14,9 +13,9 @@ import {
   Info,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
+import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
-import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { Notification } from '@/lib/types'
@@ -43,80 +42,74 @@ function getNotifIconColor(type: string) {
   }
 }
 
-const EXTRA_DEMO_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'demo-notif-3',
-    member_id: 'demo-member-2',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    title: 'New message in #general',
-    body: 'Meena Rathore: Weekend Rajasthani thali orders open!',
-    type: 'chat',
-    is_read: false,
-    link: '/dashboard/chat',
-    created_at: new Date(Date.now() - 900000).toISOString(),
-  },
-  {
-    id: 'demo-notif-4',
-    member_id: 'demo-member-2',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    title: 'Court booking confirmed',
-    body: 'Your badminton court booking for 6:00 PM today is confirmed.',
-    type: 'booking',
-    is_read: false,
-    link: '/dashboard/sports',
-    created_at: new Date(Date.now() - 5400000).toISOString(),
-  },
-  {
-    id: 'demo-notif-5',
-    member_id: 'demo-member-2',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    title: 'New listing in Bazaar',
-    body: 'IKEA Study Table + Chair listed by Vikram Singh (D-103)',
-    type: 'bazaar',
-    is_read: true,
-    link: '/dashboard/bazaar',
-    created_at: new Date(Date.now() - 43200000).toISOString(),
-  },
-]
-
 export default function NotificationsPage() {
   const router = useRouter()
-  const { isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember } = useAppStore()
 
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode) {
-      demoStore.initialize()
-      // Merge demo store notifications with extra ones
-      const storeNotifs = (demoStore.notifications || []) as unknown as Notification[]
-      const merged = [...storeNotifs, ...EXTRA_DEMO_NOTIFICATIONS]
-      // Deduplicate by id
-      const seen = new Set<string>()
-      const deduped = merged.filter((n) => {
-        if (seen.has(n.id)) return false
-        seen.add(n.id)
-        return true
-      })
-      // Sort newest first
-      deduped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      setNotifications(deduped)
+    const fetchNotifications = async () => {
+      if (!currentMember) { setLoading(false); return }
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('member_id', currentMember.id)
+          .order('created_at', { ascending: false })
+          .limit(30)
+        if (!error && data) {
+          setNotifications(data as Notification[])
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err)
+        toast.error('Failed to load notifications')
+      } finally {
+        setLoading(false)
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemoMode])
+    fetchNotifications()
+  }, [currentMember])
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-    toast.success('All notifications marked as read')
+  const handleMarkAllRead = async () => {
+    if (!currentMember) return
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('member_id', currentMember.id)
+        .eq('is_read', false)
+      if (!error) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+        toast.success('All notifications marked as read')
+      } else {
+        toast.error('Failed to mark notifications as read')
+      }
+    } catch {
+      toast.error('Failed to mark notifications as read')
+    }
   }
 
-  const handleClick = (notif: Notification) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
-    )
+  const handleClick = async (notif: Notification) => {
+    if (!notif.is_read) {
+      try {
+        const supabase = createClient()
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notif.id)
+      } catch {
+        // Silently fail — marking as read is non-critical
+      }
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+      )
+    }
     if (notif.link) {
       router.push(notif.link)
     }

@@ -9,13 +9,9 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  // Skip Supabase auth check in demo mode or when not configured
-  if (!supabaseUrl || !supabaseKey || supabaseUrl === 'your_supabase_project_url') {
-    // In demo mode, allow all dashboard access
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
-      return supabaseResponse
-    }
-    // Not demo mode and no Supabase — redirect to login
+  // Skip Supabase auth check when not configured
+  if (!supabaseUrl || !supabaseKey) {
+    // No Supabase configured — redirect dashboard to login
     if (request.nextUrl.pathname.startsWith('/dashboard')) {
       const url = request.nextUrl.clone()
       url.pathname = '/auth/login'

@@ -1,4 +1,4 @@
-# 🏘️ MeraSociety — Your Society, Connected
+# MeraSociety — Your Society, Connected
 
 > A verified, private mini-social network for apartment societies — replacing chaotic WhatsApp groups with structured, searchable workflows.
 
@@ -8,7 +8,7 @@
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e?logo=supabase)
 ![Azure OpenAI](https://img.shields.io/badge/Azure_OpenAI-GPT--4o-0078d4?logo=microsoftazure)
 
-## 🎯 The Problem
+## The Problem
 
 Every apartment society in India runs on WhatsApp. The result?
 - **Lost announcements** buried under 200 "👍" replies
@@ -17,7 +17,7 @@ Every apartment society in India runs on WhatsApp. The result?
 - **Court booking fights** — "I was first!" / "No, I booked it!" with no proof
 - **No structure** — conversations about plumber recommendations mixed with Diwali party plans
 
-## 💡 The Solution
+## The Solution
 
 **MeraSociety** gives your society a private, verified platform with structured workflows:
 
@@ -25,14 +25,14 @@ Every apartment society in India runs on WhatsApp. The result?
 
 | Module | What it does |
 |--------|-------------|
-| 📢 **Announcements** | Admin posts with priority levels, comments, seen tracking |
-| 💬 **Chat** | Topic-based channels (General, Buy/Sell, Food, Sports) with real-time messaging |
-| 🛒 **Bazaar** | Structured marketplace with AI-powered "WhatsApp text → structured listing" extraction |
-| 🔒 **Security** | Pre-register visitors, generate QR/pass codes, guard verification dashboard |
-| 🏸 **Sports** | Court booking with fairness rules (max 2 hrs/day per flat enforced server-side) |
-| 🤖 **AI Features** | Smart listing extraction from informal text + intelligent matching |
+| **Announcements** | Admin posts with priority levels, comments, seen tracking |
+| **Chat** | Topic-based channels (General, Buy/Sell, Food, Sports) with real-time messaging |
+| **Bazaar** | Structured marketplace with AI-powered "WhatsApp text → structured listing" extraction |
+| **Security** | Pre-register visitors, generate QR/pass codes, guard verification dashboard |
+| **Sports** | Court booking with fairness rules (max 2 hrs/day per flat enforced server-side) |
+| **AI Features** | Smart listing extraction from informal text + intelligent matching |
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+
@@ -60,18 +60,9 @@ cp .env.example .env.local
 npm run dev
 ```
 
-### Demo Mode
+Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
-Want to try without setting up Supabase? Set `NEXT_PUBLIC_DEMO_MODE=true` in `.env.local` and the app will use built-in demo data.
-
-```bash
-# Run in demo mode
-NEXT_PUBLIC_DEMO_MODE=true npm run dev
-```
-
-Visit [http://localhost:3000](http://localhost:3000) and click **"Try Demo"**.
-
-## 🏗️ Tech Stack
+## Tech Stack
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
@@ -84,7 +75,7 @@ Visit [http://localhost:3000](http://localhost:3000) and click **"Try Demo"**.
 | Icons | Lucide React | Beautiful, consistent iconography |
 | Deployment | Vercel | Zero-config Next.js deployment |
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 merasociety/
@@ -109,14 +100,14 @@ merasociety/
 │   └── lib/
 │       ├── supabase/        # Supabase client setup
 │       ├── ai.ts            # Azure OpenAI integration
-│       ├── store.ts         # Zustand stores + demo data
+│       ├── store.ts         # Zustand store (auth state)
 │       ├── types.ts         # TypeScript type definitions
 │       └── utils.ts         # Utility functions
 └── supabase/
     └── schema.sql           # Complete database schema + RLS + seed
 ```
 
-## 🔐 Security
+## Security
 
 - **Row Level Security (RLS)** on all tables — members can only access their society's data
 - **Invite-code gated** — can't join without a valid society code
@@ -124,7 +115,7 @@ merasociety/
 - **Role-based access** — admin, resident, and guard roles with different permissions
 - **Visitor verification** — unique pass codes + QR codes with expiration
 
-## ⚖️ Court Booking Fairness
+## Court Booking Fairness
 
 The sports booking system enforces fairness rules server-side:
 - **Max daily hours per flat**: Each flat can book at most 2 hours per day per court
@@ -132,7 +123,7 @@ The sports booking system enforces fairness rules server-side:
 - **Transparent usage**: Members can see their remaining quota
 - **Enforced by database function**: `check_booking_fairness()` runs on every booking
 
-## 🤖 AI Features
+## AI Features
 
 ### Smart Listing Extraction
 Paste a WhatsApp-style message like:
@@ -152,7 +143,7 @@ AI extracts:
 ### Intelligent Matching
 Describe what you're looking for, and AI matches you with relevant listings based on semantic understanding.
 
-## 🚀 Deployment
+## Deployment
 
 ### Vercel (Recommended)
 
@@ -169,13 +160,12 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 AZURE_OPENAI_ENDPOINT=your_endpoint
 AZURE_OPENAI_API_KEY=your_api_key
-NEXT_PUBLIC_DEMO_MODE=false
 ```
 
-## 📝 License
+## License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-Built with ❤️ for the DEV.to Weekend Build Hackathon
+Built with care for Indian apartment communities.

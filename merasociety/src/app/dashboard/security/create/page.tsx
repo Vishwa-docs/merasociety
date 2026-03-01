@@ -11,11 +11,10 @@ import {
   Phone,
   FileText,
   Calendar,
-  Clock,
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import { generatePassCode, formatTime } from '@/lib/utils'
 import type { PassType } from '@/lib/types'
@@ -46,8 +45,7 @@ const timeOptions = generateTimeOptions()
 
 export default function CreatePassPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [visitorName, setVisitorName] = useState('')
   const [visitorPhone, setVisitorPhone] = useState('')
@@ -78,9 +76,15 @@ export default function CreatePassPage() {
       const passCode = generatePassCode()
 
       try {
+        if (!currentMember?.id || !currentSociety?.id) {
+          toast.error('Unable to determine your membership. Please reload.')
+          setSubmitting(false)
+          return
+        }
+
         const passData = {
-          society_id: currentSociety?.id || '00000000-0000-0000-0000-000000000001',
-          created_by: currentMember?.id || 'demo-member-2',
+          society_id: currentSociety.id,
+          created_by: currentMember.id,
           visitor_name: visitorName.trim(),
           visitor_phone: visitorPhone.trim() || null,
           pass_type: passType,
@@ -94,23 +98,12 @@ export default function CreatePassPage() {
           created_at: new Date().toISOString(),
         }
 
-        if (isDemoMode) {
-          demoStore.addItem('passes', {
-            id: `demo-pass-${Date.now()}`,
-            ...passData,
-            creator: {
-              full_name: currentMember?.full_name || 'You',
-              flat_number: currentMember?.flat_number || 'B-302',
-            },
-          })
-        } else {
-          const supabase = createClient()
-          const { error } = await supabase
-            .from('visitor_passes')
-            .insert(passData)
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('visitor_passes')
+          .insert(passData)
 
-          if (error) throw error
-        }
+        if (error) throw error
 
         // Generate QR code for the success modal
         const qr = await QRCode.toDataURL(passCode, {
@@ -141,10 +134,8 @@ export default function CreatePassPage() {
       timeStart,
       timeEnd,
       isOneTime,
-      isDemoMode,
       currentMember,
       currentSociety,
-      demoStore,
     ]
   )
 

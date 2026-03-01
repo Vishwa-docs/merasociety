@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Input'
@@ -21,8 +21,7 @@ const priorityOptions = [
 
 export default function CreateAnnouncementPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -48,31 +47,6 @@ export default function CreateAnnouncementPage() {
     setSubmitting(true)
 
     try {
-      if (isDemoMode) {
-        const newAnnouncement = {
-          id: `demo-ann-${Date.now()}`,
-          society_id: '00000000-0000-0000-0000-000000000001',
-          author_id: currentMember?.id || 'demo-member-1',
-          title: title.trim(),
-          content: content.trim(),
-          is_pinned: isPinned,
-          priority,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          author: {
-            full_name: currentMember?.full_name || 'Demo User',
-            flat_number: currentMember?.flat_number || 'A-101',
-            role: currentMember?.role || 'admin',
-          },
-          comments_count: 0,
-          seen_count: 0,
-        }
-        demoStore.addItem('announcements', newAnnouncement)
-        toast.success('Announcement created!')
-        router.push('/dashboard/announcements')
-        return
-      }
-
       const supabase = createClient()
       const societyId = currentSociety?.id
       if (!societyId || !currentMember?.id) {

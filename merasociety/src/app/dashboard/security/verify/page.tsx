@@ -4,7 +4,6 @@ import React, { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ShieldCheck,
-  ShieldAlert,
   ShieldX,
   ArrowLeft,
   Search,
@@ -18,7 +17,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import { formatTime, getPassTypeLabel } from '@/lib/utils'
 import type { VisitorPass, PassStatus } from '@/lib/types'
@@ -32,8 +31,7 @@ type VerifyResult =
 
 export default function VerifyPassPage() {
   const router = useRouter()
-  const { currentMember, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember } = useAppStore()
 
   const [code, setCode] = useState('')
   const [result, setResult] = useState<VerifyResult>({ state: 'idle' })
@@ -47,20 +45,6 @@ export default function VerifyPassPage() {
     }
 
     setResult({ state: 'loading' })
-
-    if (isDemoMode) {
-      if (!demoStore.initialized) demoStore.initialize()
-      const found = demoStore.passes.find(
-        (p) => (p as unknown as VisitorPass).pass_code === trimmed
-      ) as unknown as VisitorPass | undefined
-
-      if (found) {
-        setResult({ state: 'found', pass: found })
-      } else {
-        setResult({ state: 'not_found' })
-      }
-      return
-    }
 
     try {
       const supabase = createClient()
@@ -85,29 +69,13 @@ export default function VerifyPassPage() {
       toast.error('Error verifying pass')
       setResult({ state: 'not_found' })
     }
-  }, [code, isDemoMode, demoStore])
+  }, [code])
 
   const handleApproveEntry = useCallback(async () => {
     if (result.state !== 'found') return
     setApproving(true)
 
     const now = new Date().toISOString()
-
-    if (isDemoMode) {
-      // Update in local state
-      setResult({
-        state: 'found',
-        pass: {
-          ...result.pass,
-          status: 'used' as PassStatus,
-          verified_at: now,
-          verified_by: currentMember?.id || 'demo-guard',
-        },
-      })
-      toast.success('Entry approved!')
-      setApproving(false)
-      return
-    }
 
     try {
       const supabase = createClient()
@@ -137,7 +105,7 @@ export default function VerifyPassPage() {
     } finally {
       setApproving(false)
     }
-  }, [result, isDemoMode, currentMember])
+  }, [result, currentMember])
 
   const handleReset = () => {
     setCode('')

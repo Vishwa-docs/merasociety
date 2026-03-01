@@ -1,5 +1,48 @@
 -- MeraSociety Database Schema
--- Run this in your Supabase SQL Editor
+-- Run this in your Supabase SQL Editor to DROP everything and rebuild from scratch.
+
+-- ============================================================
+-- DROP EVERYTHING (order matters — children before parents)
+-- ============================================================
+
+-- Remove tables from realtime publication first (ignore if not present)
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime drop table messages;
+  end if;
+exception when others then null;
+end $$;
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime drop table notifications;
+  end if;
+exception when others then null;
+end $$;
+
+-- Drop functions
+drop function if exists check_booking_fairness(uuid, uuid, date, time, time);
+drop function if exists generate_pass_code();
+drop function if exists auto_expire_passes();
+
+-- Drop tables (children first, parents last)
+drop table if exists audit_log cascade;
+drop table if exists feedback cascade;
+drop table if exists notifications cascade;
+drop table if exists bookings cascade;
+drop table if exists courts cascade;
+drop table if exists visitor_passes cascade;
+drop table if exists messages cascade;
+drop table if exists channels cascade;
+drop table if exists listings cascade;
+drop table if exists announcement_seen cascade;
+drop table if exists announcement_comments cascade;
+drop table if exists announcements cascade;
+drop table if exists members cascade;
+drop table if exists societies cascade;
+
+-- ============================================================
+-- REBUILD
+-- ============================================================
 
 -- Enable required extensions
 create extension if not exists "uuid-ossp";
@@ -203,208 +246,25 @@ create table if not exists audit_log (
 );
 
 -- ============================================================
--- ROW LEVEL SECURITY POLICIES
+-- ROW LEVEL SECURITY (DISABLED)
 -- ============================================================
+-- RLS is disabled for all tables. Access control is handled at the
+-- application layer (middleware + server-side checks).
 
--- Enable RLS on all tables
-alter table societies enable row level security;
-alter table members enable row level security;
-alter table announcements enable row level security;
-alter table announcement_comments enable row level security;
-alter table announcement_seen enable row level security;
-alter table channels enable row level security;
-alter table messages enable row level security;
-alter table listings enable row level security;
-alter table visitor_passes enable row level security;
-alter table courts enable row level security;
-alter table bookings enable row level security;
-alter table notifications enable row level security;
-alter table feedback enable row level security;
-alter table audit_log enable row level security;
-
--- Societies: members can read their society
-create policy "Members can view their society" on societies
-  for select using (
-    id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Anyone can view society by invite code" on societies
-  for select using (true);
-
--- Members: approved members can view other members in same society
-create policy "Members can view society members" on members
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid())
-  );
-
-create policy "Users can insert their own member record" on members
-  for insert with check (user_id = auth.uid());
-
-create policy "Users can update their own member record" on members
-  for update using (user_id = auth.uid());
-
-create policy "Admins can update any member in their society" on members
-  for update using (
-    society_id in (
-      select society_id from members where user_id = auth.uid() and role = 'admin' and status = 'approved'
-    )
-  );
-
--- Announcements: approved members can read, admins can write
-create policy "Members can view announcements" on announcements
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Admins can create announcements" on announcements
-  for insert with check (
-    society_id in (select society_id from members where user_id = auth.uid() and role = 'admin' and status = 'approved')
-  );
-
-create policy "Admins can update announcements" on announcements
-  for update using (
-    society_id in (select society_id from members where user_id = auth.uid() and role = 'admin' and status = 'approved')
-  );
-
--- Comments: members can read and create
-create policy "Members can view comments" on announcement_comments
-  for select using (
-    announcement_id in (
-      select id from announcements where society_id in (
-        select society_id from members where user_id = auth.uid() and status = 'approved'
-      )
-    )
-  );
-
-create policy "Members can create comments" on announcement_comments
-  for insert with check (
-    author_id in (select id from members where user_id = auth.uid() and status = 'approved')
-  );
-
--- Seen tracking
-create policy "Members can view seen status" on announcement_seen
-  for select using (
-    member_id in (select id from members where user_id = auth.uid())
-  );
-
-create policy "Members can mark as seen" on announcement_seen
-  for insert with check (
-    member_id in (select id from members where user_id = auth.uid())
-  );
-
--- Channels: approved members
-create policy "Members can view channels" on channels
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Admins can create channels" on channels
-  for insert with check (
-    society_id in (select society_id from members where user_id = auth.uid() and role = 'admin' and status = 'approved')
-  );
-
--- Messages: approved members
-create policy "Members can view messages" on messages
-  for select using (
-    channel_id in (
-      select id from channels where society_id in (
-        select society_id from members where user_id = auth.uid() and status = 'approved'
-      )
-    )
-  );
-
-create policy "Members can send messages" on messages
-  for insert with check (
-    sender_id in (select id from members where user_id = auth.uid() and status = 'approved')
-  );
-
--- Listings: approved members
-create policy "Members can view listings" on listings
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Members can create listings" on listings
-  for insert with check (
-    author_id in (select id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Authors can update their listings" on listings
-  for update using (
-    author_id in (select id from members where user_id = auth.uid())
-  );
-
--- Visitor passes: approved members
-create policy "Members can view their passes" on visitor_passes
-  for select using (
-    created_by in (select id from members where user_id = auth.uid() and status = 'approved')
-    or society_id in (
-      select society_id from members where user_id = auth.uid() and role in ('admin', 'guard') and status = 'approved'
-    )
-  );
-
-create policy "Members can create passes" on visitor_passes
-  for insert with check (
-    created_by in (select id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Guards can update pass status" on visitor_passes
-  for update using (
-    society_id in (
-      select society_id from members where user_id = auth.uid() and role in ('admin', 'guard') and status = 'approved'
-    )
-  );
-
--- Courts & Bookings
-create policy "Members can view courts" on courts
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Members can view bookings" on bookings
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Members can create bookings" on bookings
-  for insert with check (
-    member_id in (select id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Members can cancel their bookings" on bookings
-  for update using (
-    member_id in (select id from members where user_id = auth.uid())
-  );
-
--- Notifications
-create policy "Users can view their notifications" on notifications
-  for select using (
-    member_id in (select id from members where user_id = auth.uid())
-  );
-
-create policy "Users can update their notifications" on notifications
-  for update using (
-    member_id in (select id from members where user_id = auth.uid())
-  );
-
--- Feedback
-create policy "Members can view society feedback" on feedback
-  for select using (
-    society_id in (select society_id from members where user_id = auth.uid() and status = 'approved')
-  );
-
-create policy "Members can create feedback" on feedback
-  for insert with check (
-    member_id in (select id from members where user_id = auth.uid() and status = 'approved')
-  );
-
--- Audit log: admins only
-create policy "Admins can view audit log" on audit_log
-  for select using (
-    society_id in (
-      select society_id from members where user_id = auth.uid() and role = 'admin' and status = 'approved'
-    )
-  );
+alter table societies disable row level security;
+alter table members disable row level security;
+alter table announcements disable row level security;
+alter table announcement_comments disable row level security;
+alter table announcement_seen disable row level security;
+alter table channels disable row level security;
+alter table messages disable row level security;
+alter table listings disable row level security;
+alter table visitor_passes disable row level security;
+alter table courts disable row level security;
+alter table bookings disable row level security;
+alter table notifications disable row level security;
+alter table feedback disable row level security;
+alter table audit_log disable row level security;
 
 -- ============================================================
 -- INDEXES
@@ -503,26 +363,37 @@ $$ language plpgsql;
 -- REALTIME
 -- ============================================================
 -- Enable realtime for messages (chat)
-alter publication supabase_realtime add table messages;
-alter publication supabase_realtime add table notifications;
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table messages;
+    alter publication supabase_realtime add table notifications;
+  end if;
+exception when others then null;
+end $$;
 
 -- ============================================================
--- SEED DATA FOR DEMO
+-- SEED DATA
 -- ============================================================
--- Insert demo society
-insert into societies (id, name, address, invite_code) values
-  ('00000000-0000-0000-0000-000000000001', 'Sunrise Heights', '42 MG Road, Bengaluru 560001', 'SUNRISE2026')
+
+-- The admin member (JackBright) is created via the create-admin script.
+-- Their member ID is: a62ae5be-c4bd-48b0-aa86-0a207b6abcdf
+-- We use this ID as the author for sample content below.
+
+-- Insert society
+insert into societies (id, name, address, invite_code, settings) values
+  ('00000000-0000-0000-0000-000000000001', 'Sunrise Heights', '42 MG Road, Bengaluru 560001', 'SUNRISE2024',
+   '{"max_passes_per_day": 5, "maintenance_amount": 3500}')
 on conflict (id) do nothing;
 
--- Insert demo courts
+-- Insert courts
 insert into courts (id, society_id, name, sport, description, slot_duration_minutes, max_daily_hours_per_flat) values
   ('00000000-0000-0000-0000-000000000101', '00000000-0000-0000-0000-000000000001', 'Badminton Court A', 'Badminton', 'Indoor badminton court with LED lighting', 60, 2),
-  ('00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000001', 'Tennis Court', 'Tennis', 'Outdoor tennis court', 60, 2),
+  ('00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000001', 'Tennis Court', 'Tennis', 'Outdoor tennis court with floodlights', 60, 2),
   ('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000001', 'Basketball Court', 'Basketball', 'Half court behind clubhouse', 60, 2),
   ('00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000001', 'Table Tennis', 'Table Tennis', 'Indoor TT tables in recreation room', 30, 2)
 on conflict (id) do nothing;
 
--- Insert demo channels
+-- Insert channels
 insert into channels (id, society_id, name, description, type) values
   ('00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000001', 'General', 'Society-wide discussions', 'general'),
   ('00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000001', 'Buy & Sell', 'Buy, sell, or exchange items', 'topic'),

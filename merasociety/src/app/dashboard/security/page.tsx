@@ -15,9 +15,9 @@ import {
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate, formatTime, getStatusColor, getPassTypeLabel } from '@/lib/utils'
+import { formatDate, formatTime, getPassTypeLabel } from '@/lib/utils'
 import type { VisitorPass, PassStatus } from '@/lib/types'
 import Card from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -42,8 +42,7 @@ const passTypeBadgeClass: Record<string, string> = {
 
 export default function SecurityPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [passes, setPasses] = useState<VisitorPass[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,13 +56,6 @@ export default function SecurityPage() {
   useEffect(() => {
     async function fetchPasses() {
       setLoading(true)
-
-      if (isDemoMode) {
-        if (!demoStore.initialized) demoStore.initialize()
-        setPasses(demoStore.passes as unknown as VisitorPass[])
-        setLoading(false)
-        return
-      }
 
       try {
         const supabase = createClient()
@@ -89,7 +81,7 @@ export default function SecurityPage() {
     }
 
     fetchPasses()
-  }, [isDemoMode, currentSociety?.id, demoStore])
+  }, [currentSociety?.id])
 
   // Generate QR codes for all passes
   useEffect(() => {
@@ -116,16 +108,6 @@ export default function SecurityPage() {
     async (passId: string) => {
       if (!confirm('Cancel this visitor pass?')) return
 
-      if (isDemoMode) {
-        setPasses((prev) =>
-          prev.map((p) =>
-            p.id === passId ? { ...p, status: 'cancelled' as PassStatus } : p
-          )
-        )
-        toast.success('Pass cancelled')
-        return
-      }
-
       try {
         const supabase = createClient()
         const { error } = await supabase
@@ -145,7 +127,7 @@ export default function SecurityPage() {
         toast.error('Failed to cancel pass')
       }
     },
-    [isDemoMode]
+    []
   )
 
   // Filter + search

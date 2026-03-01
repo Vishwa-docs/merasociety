@@ -5,12 +5,8 @@ export function createClient() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    // Return a mock client for demo mode
-    console.warn('Supabase credentials not configured. Running in demo mode.')
+    throw new Error('Missing Supabase environment variables.')
   }
 
-  return createBrowserClient(
-    supabaseUrl || 'https://placeholder.supabase.co',
-    supabaseKey || 'placeholder-key'
-  )
+  return createBrowserClient(supabaseUrl, supabaseKey)
 }

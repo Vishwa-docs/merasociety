@@ -8,70 +8,12 @@ import {
   MessageCircle,
   Users,
 } from 'lucide-react'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate, getInitials } from '@/lib/utils'
 import type { Channel, Message } from '@/lib/types'
 import { Avatar } from '@/components/ui/Avatar'
 import EmptyState from '@/components/ui/EmptyState'
-
-// ── Demo channel data ──────────────────────────────────────────────
-const DEMO_CHANNELS: Channel[] = [
-  {
-    id: '00000000-0000-0000-0000-000000000201',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'General',
-    description: 'General discussions for the society',
-    type: 'general',
-    listing_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000202',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Buy & Sell',
-    description: 'Buy and sell items within the society',
-    type: 'topic',
-    listing_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000203',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Services',
-    description: 'Share and find local service recommendations',
-    type: 'topic',
-    listing_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000204',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Food Corner',
-    description: 'Homemade food, tiffin services & recipes',
-    type: 'topic',
-    listing_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000205',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Sports',
-    description: 'Sports activities and court bookings chat',
-    type: 'topic',
-    listing_id: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000206',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Maintenance',
-    description: 'Maintenance requests and updates',
-    type: 'topic',
-    listing_id: null,
-    created_at: new Date().toISOString(),
-  },
-]
+import toast from 'react-hot-toast'
 
 const channelIcons: Record<string, string> = {
   General: '💬',
@@ -83,8 +25,7 @@ const channelIcons: Record<string, string> = {
 }
 
 export default function ChatPage() {
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
@@ -97,7 +38,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const currentMemberId = currentMember?.id || 'demo-member-2' // demo user = Priya
+  const currentMemberId = currentMember?.id
 
   const activeChannel = useMemo(
     () => channels.find((c) => c.id === activeChannelId) || null,
@@ -108,14 +49,6 @@ export default function ChatPage() {
   useEffect(() => {
     async function loadChannels() {
       setLoading(true)
-
-      if (isDemoMode) {
-        if (!demoStore.initialized) demoStore.initialize()
-        setChannels(DEMO_CHANNELS)
-        setActiveChannelId(DEMO_CHANNELS[0].id)
-        setLoading(false)
-        return
-      }
 
       try {
         const supabase = createClient()
@@ -135,25 +68,18 @@ export default function ChatPage() {
         if (chs.length > 0) setActiveChannelId(chs[0].id)
       } catch (err) {
         console.error('Failed to load channels:', err)
+        toast.error('Failed to load channels')
       } finally {
         setLoading(false)
       }
     }
 
     loadChannels()
-  }, [isDemoMode, currentSociety?.id, demoStore])
+  }, [currentSociety?.id])
 
   // ── Fetch messages for active channel ────────────────────────────
   const fetchMessages = useCallback(async () => {
     if (!activeChannelId) return
-
-    if (isDemoMode) {
-      const demoMsgs = demoStore.messages.filter(
-        (m) => (m as unknown as Message).channel_id === activeChannelId
-      ) as unknown as Message[]
-      setMessages(demoMsgs)
-      return
-    }
 
     try {
       const supabase = createClient()
@@ -169,7 +95,7 @@ export default function ChatPage() {
     } catch (err) {
       console.error('Failed to load messages:', err)
     }
-  }, [activeChannelId, isDemoMode, demoStore.messages])
+  }, [activeChannelId])
 
   useEffect(() => {
     fetchMessages()
@@ -177,7 +103,7 @@ export default function ChatPage() {
 
   // ── Realtime subscription (Supabase mode) ────────────────────────
   useEffect(() => {
-    if (isDemoMode || !activeChannelId) return
+    if (!activeChannelId) return
 
     const supabase = createClient()
     const subscription = supabase
@@ -211,7 +137,7 @@ export default function ChatPage() {
     return () => {
       supabase.removeChannel(subscription)
     }
-  }, [activeChannelId, isDemoMode])
+  }, [activeChannelId])
 
   // ── Auto-scroll to bottom ────────────────────────────────────────
   useEffect(() => {
@@ -227,23 +153,6 @@ export default function ChatPage() {
     setComposerText('')
 
     try {
-      if (isDemoMode) {
-        const newMsg: Record<string, unknown> = {
-          id: `demo-msg-${Date.now()}`,
-          channel_id: activeChannelId,
-          sender_id: currentMemberId,
-          content: text,
-          created_at: new Date().toISOString(),
-          sender: {
-            full_name: currentMember?.full_name || 'Priya Sharma',
-            flat_number: currentMember?.flat_number || 'B-302',
-          },
-        }
-        demoStore.addItem('messages', newMsg)
-        setMessages((prev) => [...prev, newMsg as unknown as Message])
-        return
-      }
-
       const supabase = createClient()
       const { error } = await supabase.from('messages').insert({
         channel_id: activeChannelId,
@@ -255,6 +164,7 @@ export default function ChatPage() {
       // Realtime will push the new message
     } catch (err) {
       console.error('Failed to send message:', err)
+      toast.error('Failed to send message')
       setComposerText(text) // restore text on failure
     } finally {
       setSending(false)
@@ -280,10 +190,7 @@ export default function ChatPage() {
 
   // ── Get last message for a channel (for sidebar preview) ─────────
   function getLastMessage(channelId: string): Message | undefined {
-    const allMsgs = isDemoMode
-      ? (demoStore.messages as unknown as Message[])
-      : messages
-    return [...allMsgs]
+    return [...messages]
       .filter((m) => m.channel_id === channelId)
       .sort(
         (a, b) =>

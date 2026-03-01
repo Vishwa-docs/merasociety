@@ -14,14 +14,13 @@ import {
   Loader2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import type { Listing } from '@/lib/types'
 import {
   formatDate,
   getCategoryLabel,
   getCategoryIcon,
-  getStatusColor,
   truncate,
   getInitials,
 } from '@/lib/utils'
@@ -45,8 +44,7 @@ const categoryTabs: { id: CategoryFilter; label: string; icon: React.ReactNode }
 
 export default function BazaarPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentSociety } = useAppStore()
 
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,30 +62,22 @@ export default function BazaarPage() {
   const [showMatchResults, setShowMatchResults] = useState(false)
 
   useEffect(() => {
-    demoStore.initialize()
-  }, [demoStore])
-
-  useEffect(() => {
     fetchListings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemoMode, currentSociety])
+  }, [currentSociety])
 
   async function fetchListings() {
     setLoading(true)
     try {
-      if (isDemoMode) {
-        setListings(demoStore.listings as unknown as Listing[])
-      } else {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('listings')
-          .select('*, author:members!listings_author_id_fkey(id,full_name,flat_number,avatar_url,role)')
-          .eq('society_id', currentSociety?.id ?? '')
-          .order('created_at', { ascending: false })
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*, author:members!listings_author_id_fkey(id,full_name,flat_number,avatar_url,role)')
+        .eq('society_id', currentSociety?.id || '')
+        .order('created_at', { ascending: false })
 
-        if (error) throw error
-        setListings((data as unknown as Listing[]) || [])
-      }
+      if (error) throw error
+      setListings((data as unknown as Listing[]) || [])
     } catch {
       toast.error('Failed to load listings')
     } finally {

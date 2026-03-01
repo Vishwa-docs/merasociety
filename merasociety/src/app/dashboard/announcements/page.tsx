@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   Megaphone,
   Pin,
@@ -11,9 +12,9 @@ import {
   Eye,
   AlertTriangle,
 } from 'lucide-react'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate, truncate, getPriorityColor } from '@/lib/utils'
+import { formatDate, truncate } from '@/lib/utils'
 import type { Announcement } from '@/lib/types'
 import Card from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -33,8 +34,7 @@ const priorityBadgeVariant: Record<string, 'error' | 'warning' | 'info' | 'neutr
 
 export default function AnnouncementsPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,13 +47,6 @@ export default function AnnouncementsPage() {
   useEffect(() => {
     async function fetchAnnouncements() {
       setLoading(true)
-
-      if (isDemoMode) {
-        if (!demoStore.initialized) demoStore.initialize()
-        setAnnouncements(demoStore.announcements as unknown as Announcement[])
-        setLoading(false)
-        return
-      }
 
       try {
         const supabase = createClient()
@@ -83,13 +76,14 @@ export default function AnnouncementsPage() {
         setAnnouncements(mapped)
       } catch (err) {
         console.error('Failed to fetch announcements:', err)
+        toast.error('Failed to load announcements')
       } finally {
         setLoading(false)
       }
     }
 
     fetchAnnouncements()
-  }, [isDemoMode, currentSociety?.id, demoStore])
+  }, [currentSociety?.id])
 
   // Filter + search
   const filtered = useMemo(() => {

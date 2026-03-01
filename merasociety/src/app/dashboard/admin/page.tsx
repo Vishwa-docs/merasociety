@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Shield,
   Users,
@@ -19,9 +19,11 @@ import {
   Ban,
   RotateCcw,
   Clock,
+  Loader2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppStore } from '@/lib/store'
+import { createClient } from '@/lib/supabase/client'
 import { formatDate, getInitials } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -32,48 +34,11 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import type { Member, AuditLogEntry } from '@/lib/types'
 
-// ── Demo data ────────────────────────────────────────────────
-const DEMO_MEMBERS: Member[] = [
-  { id: 'dm-1', user_id: 'u1', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'A-101', full_name: 'Rajesh Kumar', phone: '9876543210', avatar_url: null, role: 'admin', status: 'approved', is_verified: true, created_at: new Date(Date.now() - 90 * 86400000).toISOString() },
-  { id: 'dm-2', user_id: 'u2', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'B-302', full_name: 'Priya Sharma', phone: '9876543211', avatar_url: null, role: 'resident', status: 'approved', is_verified: true, created_at: new Date(Date.now() - 60 * 86400000).toISOString() },
-  { id: 'dm-3', user_id: 'u3', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'C-501', full_name: 'Anita Desai', phone: '9876543212', avatar_url: null, role: 'resident', status: 'approved', is_verified: true, created_at: new Date(Date.now() - 45 * 86400000).toISOString() },
-  { id: 'dm-4', user_id: 'u4', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'A-204', full_name: 'Meena Rathore', phone: '9876543213', avatar_url: null, role: 'resident', status: 'approved', is_verified: false, created_at: new Date(Date.now() - 30 * 86400000).toISOString() },
-  { id: 'dm-5', user_id: 'u5', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'D-103', full_name: 'Vikram Singh', phone: '9876543214', avatar_url: null, role: 'resident', status: 'approved', is_verified: true, created_at: new Date(Date.now() - 20 * 86400000).toISOString() },
-  { id: 'dm-6', user_id: 'u6', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'B-105', full_name: 'Deepak Nair', phone: '9876543215', avatar_url: null, role: 'resident', status: 'suspended', is_verified: true, created_at: new Date(Date.now() - 15 * 86400000).toISOString() },
-  { id: 'dm-7', user_id: 'u7', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'A-403', full_name: 'Ramesh Gupta', phone: '9876543216', avatar_url: null, role: 'guard', status: 'approved', is_verified: true, created_at: new Date(Date.now() - 10 * 86400000).toISOString() },
-  { id: 'dm-8', user_id: 'u8', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'C-202', full_name: 'Sunita Verma', phone: '9876543217', avatar_url: null, role: 'resident', status: 'approved', is_verified: false, created_at: new Date(Date.now() - 5 * 86400000).toISOString() },
-]
-
-const DEMO_PENDING: Member[] = [
-  { id: 'dp-1', user_id: 'up1', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'D-405', full_name: 'Kiran Patel', phone: '9988776655', avatar_url: null, role: 'resident', status: 'pending', is_verified: false, created_at: new Date(Date.now() - 2 * 86400000).toISOString() },
-  { id: 'dp-2', user_id: 'up2', society_id: '00000000-0000-0000-0000-000000000001', flat_number: 'B-601', full_name: 'Arjun Mehta', phone: '9988776644', avatar_url: null, role: 'resident', status: 'pending', is_verified: false, created_at: new Date(Date.now() - 86400000).toISOString() },
-]
-
-const DEMO_AUDIT: AuditLogEntry[] = [
-  { id: 'al-1', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-1', action: 'Approved member Priya Sharma', entity_type: 'member', entity_id: 'dm-2', details: null, created_at: new Date(Date.now() - 1800000).toISOString() },
-  { id: 'al-2', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-1', action: 'Created announcement: Water Supply Disruption', entity_type: 'announcement', entity_id: 'demo-ann-1', details: null, created_at: new Date(Date.now() - 3600000).toISOString() },
-  { id: 'al-3', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-7', action: 'Verified pass XK7M2N for Amit Patel', entity_type: 'visitor_pass', entity_id: 'demo-pass-1', details: null, created_at: new Date(Date.now() - 5400000).toISOString() },
-  { id: 'al-4', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-1', action: 'Suspended member Deepak Nair', entity_type: 'member', entity_id: 'dm-6', details: null, created_at: new Date(Date.now() - 7200000).toISOString() },
-  { id: 'al-5', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-2', action: 'Created listing: Samsung 7kg Washing Machine', entity_type: 'listing', entity_id: 'demo-listing-1', details: null, created_at: new Date(Date.now() - 10800000).toISOString() },
-  { id: 'al-6', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-1', action: 'Updated society settings', entity_type: 'society', entity_id: '00000000-0000-0000-0000-000000000001', details: null, created_at: new Date(Date.now() - 14400000).toISOString() },
-  { id: 'al-7', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-3', action: 'Booked Badminton Court for 6:00 PM', entity_type: 'booking', entity_id: 'b1', details: null, created_at: new Date(Date.now() - 18000000).toISOString() },
-  { id: 'al-8', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-1', action: 'Approved member Anita Desai', entity_type: 'member', entity_id: 'dm-3', details: null, created_at: new Date(Date.now() - 21600000).toISOString() },
-  { id: 'al-9', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-5', action: 'Created listing: IKEA Study Table + Chair', entity_type: 'listing', entity_id: 'demo-listing-4', details: null, created_at: new Date(Date.now() - 43200000).toISOString() },
-  { id: 'al-10', society_id: '00000000-0000-0000-0000-000000000001', member_id: 'dm-1', action: 'Created channel #maintenance', entity_type: 'channel', entity_id: 'ch-1', details: null, created_at: new Date(Date.now() - 86400000).toISOString() },
-]
-
-function getMemberName(memberId: string | null): string {
-  if (!memberId) return 'System'
-  const m = DEMO_MEMBERS.find((m) => m.id === memberId) || DEMO_PENDING.find((m) => m.id === memberId)
-  return m?.full_name || 'Unknown'
-}
-
 // ── Page Component ───────────────────────────────────────────
 export default function AdminPage() {
-  const { currentMember, isDemoMode } = useAppStore()
+  const { currentMember } = useAppStore()
 
-  // Access check
-  const isAdmin = isDemoMode || currentMember?.role === 'admin'
+  const isAdmin = currentMember?.role === 'admin'
 
   if (!isAdmin) {
     return (
@@ -108,31 +73,57 @@ export default function AdminPage() {
 
 // ── Overview Tab ─────────────────────────────────────────────
 function OverviewTab() {
-  const stats = [
-    { label: 'Total Members', value: DEMO_MEMBERS.length, icon: <Users className="h-5 w-5" />, color: 'text-teal-600 bg-teal-50' },
-    { label: 'Pending Approvals', value: DEMO_PENDING.length, icon: <ClipboardCheck className="h-5 w-5" />, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Active Listings', value: 5, icon: <ShoppingBag className="h-5 w-5" />, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Today Bookings', value: 3, icon: <CalendarCheck className="h-5 w-5" />, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Active Passes', value: 2, icon: <BadgeCheck className="h-5 w-5" />, color: 'text-green-600 bg-green-50' },
+  const { currentSociety } = useAppStore()
+  const [stats, setStats] = useState({ members: 0, pending: 0, listings: 0, bookings: 0, passes: 0 })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchStats() {
+      if (!currentSociety) { setLoading(false); return }
+      try {
+        const supabase = createClient()
+
+        const [membersRes, pendingRes, listingsRes, bookingsRes, passesRes] = await Promise.all([
+          supabase.from('members').select('id', { count: 'exact', head: true }).eq('society_id', currentSociety.id).eq('status', 'approved'),
+          supabase.from('members').select('id', { count: 'exact', head: true }).eq('society_id', currentSociety.id).eq('status', 'pending'),
+          supabase.from('listings').select('id', { count: 'exact', head: true }).eq('society_id', currentSociety.id).eq('status', 'active'),
+          supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('society_id', currentSociety.id).eq('date', new Date().toISOString().split('T')[0]),
+          supabase.from('visitor_passes').select('id', { count: 'exact', head: true }).eq('society_id', currentSociety.id).eq('status', 'active'),
+        ])
+
+        setStats({
+          members: membersRes.count ?? 0,
+          pending: pendingRes.count ?? 0,
+          listings: listingsRes.count ?? 0,
+          bookings: bookingsRes.count ?? 0,
+          passes: passesRes.count ?? 0,
+        })
+      } catch (err) {
+        console.error('Admin stats error:', err)
+        toast.error('Failed to load admin stats')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStats()
+  }, [currentSociety])
+
+  const statCards = [
+    { label: 'Total Members', value: stats.members, icon: <Users className="h-5 w-5" />, color: 'text-teal-600 bg-teal-50' },
+    { label: 'Pending Approvals', value: stats.pending, icon: <ClipboardCheck className="h-5 w-5" />, color: 'text-amber-600 bg-amber-50' },
+    { label: 'Active Listings', value: stats.listings, icon: <ShoppingBag className="h-5 w-5" />, color: 'text-purple-600 bg-purple-50' },
+    { label: 'Today Bookings', value: stats.bookings, icon: <CalendarCheck className="h-5 w-5" />, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Active Passes', value: stats.passes, icon: <BadgeCheck className="h-5 w-5" />, color: 'text-green-600 bg-green-50' },
   ]
 
-  // Simple bar chart data
-  const chartData = [
-    { label: 'Mon', value: 12 },
-    { label: 'Tue', value: 8 },
-    { label: 'Wed', value: 15 },
-    { label: 'Thu', value: 10 },
-    { label: 'Fri', value: 18 },
-    { label: 'Sat', value: 22 },
-    { label: 'Sun', value: 14 },
-  ]
-  const maxVal = Math.max(...chartData.map((d) => d.value))
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-teal-600" /></div>
+  }
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {stats.map((s) => (
+        {statCards.map((s) => (
           <Card key={s.label} className="relative overflow-hidden">
             <div className="flex items-start justify-between">
               <div>
@@ -145,36 +136,12 @@ function OverviewTab() {
         ))}
       </div>
 
-      {/* Activity chart */}
-      <Card header="Weekly Activity">
-        <div className="flex items-end justify-between gap-2 h-40">
-          {chartData.map((d) => (
-            <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-xs font-medium text-gray-600">{d.value}</span>
-              <div
-                className="w-full bg-teal-500 rounded-t-md transition-all duration-300"
-                style={{ height: `${(d.value / maxVal) * 100}%` }}
-              />
-              <span className="text-xs text-gray-500">{d.label}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Quick Actions */}
       <Card header="Quick Actions">
         <div className="flex flex-wrap gap-3">
           <Button
             variant="secondary"
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            onClick={() => toast.success('All pending members approved!')}
-          >
-            Approve All Pending
-          </Button>
-          <Button
-            variant="secondary"
             icon={<Megaphone className="h-4 w-4" />}
-            onClick={() => toast.success('Redirecting to create announcement...')}
+            onClick={() => window.location.href = '/dashboard/announcements/create'}
           >
             Send Announcement
           </Button>
@@ -186,9 +153,34 @@ function OverviewTab() {
 
 // ── Members Tab ──────────────────────────────────────────────
 function MembersTab() {
-  const [members, setMembers] = useState<Member[]>(DEMO_MEMBERS)
+  const { currentSociety } = useAppStore()
+  const [members, setMembers] = useState<Member[]>([])
   const [search, setSearch] = useState('')
   const [roleDropdown, setRoleDropdown] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchMembers() {
+      if (!currentSociety) { setLoading(false); return }
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .eq('society_id', currentSociety.id)
+          .neq('status', 'pending')
+          .order('created_at', { ascending: true })
+
+        if (error) throw error
+        if (data) setMembers(data as Member[])
+      } catch {
+        toast.error('Failed to load members')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMembers()
+  }, [currentSociety])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return members
@@ -198,24 +190,32 @@ function MembersTab() {
     )
   }, [members, search])
 
-  const handleRoleChange = (memberId: string, newRole: 'admin' | 'resident' | 'guard') => {
+  const handleRoleChange = async (memberId: string, newRole: 'admin' | 'resident' | 'guard') => {
+    const supabase = createClient()
+    const { error } = await supabase.from('members').update({ role: newRole }).eq('id', memberId)
+    if (error) { toast.error('Failed to update role'); return }
     setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)))
     setRoleDropdown(null)
     toast.success('Role updated successfully')
   }
 
-  const handleToggleStatus = (memberId: string) => {
+  const handleToggleStatus = async (memberId: string) => {
+    const supabase = createClient()
+    const member = members.find((m) => m.id === memberId)
+    if (!member) return
+    const newStatus = member.status === 'suspended' ? 'approved' : 'suspended'
+    const { error } = await supabase.from('members').update({ status: newStatus }).eq('id', memberId)
+    if (error) { toast.error('Failed to update status'); return }
     setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId
-          ? { ...m, status: m.status === 'suspended' ? 'approved' : 'suspended' }
-          : m
-      )
+      prev.map((m) => (m.id === memberId ? { ...m, status: newStatus } : m))
     )
     toast.success('Member status updated')
   }
 
-  const handleVerify = (memberId: string) => {
+  const handleVerify = async (memberId: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('members').update({ is_verified: true }).eq('id', memberId)
+    if (error) { toast.error('Failed to verify member'); return }
     setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, is_verified: true } : m)))
     toast.success('Member verified')
   }
@@ -235,6 +235,10 @@ function MembersTab() {
       case 'guard': return 'warning' as const
       default: return 'neutral' as const
     }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-teal-600" /></div>
   }
 
   return (
@@ -337,7 +341,7 @@ function MembersTab() {
         <EmptyState
           icon={<Users />}
           title="No members found"
-          description="Try adjusting your search query."
+          description={search ? 'Try adjusting your search query.' : 'No members in this society yet.'}
         />
       )}
     </div>
@@ -346,15 +350,49 @@ function MembersTab() {
 
 // ── Approvals Tab ────────────────────────────────────────────
 function ApprovalsTab() {
-  const [pending, setPending] = useState<Member[]>(DEMO_PENDING)
+  const { currentSociety } = useAppStore()
+  const [pending, setPending] = useState<Member[]>([])
+  const [loading, setLoading] = useState(true)
   const [confirmModal, setConfirmModal] = useState<{ action: 'approve' | 'reject'; member: Member } | null>(null)
+
+  useEffect(() => {
+    async function fetchPending() {
+      if (!currentSociety) { setLoading(false); return }
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .eq('society_id', currentSociety.id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        if (data) setPending(data as Member[])
+      } catch {
+        toast.error('Failed to load pending requests')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPending()
+  }, [currentSociety])
 
   const handleAction = (action: 'approve' | 'reject', member: Member) => {
     setConfirmModal({ action, member })
   }
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (!confirmModal) return
+    const supabase = createClient()
+
+    const newStatus = confirmModal.action === 'approve' ? 'approved' : 'rejected'
+    const { error } = await supabase
+      .from('members')
+      .update({ status: newStatus })
+      .eq('id', confirmModal.member.id)
+
+    if (error) { toast.error('Failed to process request'); setConfirmModal(null); return }
+
     setPending((prev) => prev.filter((m) => m.id !== confirmModal.member.id))
     toast.success(
       confirmModal.action === 'approve'
@@ -362,6 +400,10 @@ function ApprovalsTab() {
         : `${confirmModal.member.full_name} has been rejected.`
     )
     setConfirmModal(null)
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-teal-600" /></div>
   }
 
   return (
@@ -409,7 +451,6 @@ function ApprovalsTab() {
         </div>
       )}
 
-      {/* Confirmation modal */}
       <Modal
         open={!!confirmModal}
         onClose={() => setConfirmModal(null)}
@@ -441,6 +482,44 @@ function ApprovalsTab() {
 
 // ── Audit Log Tab ────────────────────────────────────────────
 function AuditLogTab() {
+  const { currentSociety } = useAppStore()
+  const [auditLog, setAuditLog] = useState<(AuditLogEntry & { member_name?: string })[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchAuditLog() {
+      if (!currentSociety) { setLoading(false); return }
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('audit_log')
+          .select('*, member:members!member_id(full_name)')
+          .eq('society_id', currentSociety.id)
+          .order('created_at', { ascending: false })
+          .limit(50)
+
+        if (error) throw error
+        if (data) {
+          setAuditLog(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data.map((entry: any) => ({
+              ...(entry as AuditLogEntry),
+              member_name:
+                entry.member && typeof entry.member === 'object' && entry.member.full_name
+                  ? String(entry.member.full_name)
+                  : 'System',
+            }))
+          )
+        }
+      } catch {
+        toast.error('Failed to load audit log')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAuditLog()
+  }, [currentSociety])
+
   const entityIcon = (type: string | null) => {
     switch (type) {
       case 'member': return <UserCog className="h-4 w-4" />
@@ -453,9 +532,23 @@ function AuditLogTab() {
     }
   }
 
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-teal-600" /></div>
+  }
+
+  if (auditLog.length === 0) {
+    return (
+      <EmptyState
+        icon={<ScrollText />}
+        title="No audit log entries"
+        description="Actions performed in this society will appear here."
+      />
+    )
+  }
+
   return (
     <div className="space-y-2">
-      {DEMO_AUDIT.map((entry) => (
+      {auditLog.map((entry) => (
         <div
           key={entry.id}
           className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
@@ -466,7 +559,9 @@ function AuditLogTab() {
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-900">{entry.action}</p>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-gray-500">by {getMemberName(entry.member_id)}</span>
+              <span className="text-xs text-gray-500">
+                by {entry.member_name || 'System'}
+              </span>
               {entry.entity_type && (
                 <Badge variant="neutral">{entry.entity_type.replace('_', ' ')}</Badge>
               )}

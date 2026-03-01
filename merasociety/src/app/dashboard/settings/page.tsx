@@ -10,7 +10,6 @@ import {
   Save,
   Copy,
   Key,
-  CheckCircle2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppStore } from '@/lib/store'
@@ -21,11 +20,11 @@ import { Input } from '@/components/ui/Input'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
+  const { currentMember, currentSociety } = useAppStore()
 
-  const [fullName, setFullName] = useState(currentMember?.full_name || (isDemoMode ? 'Priya Sharma' : ''))
-  const [phone, setPhone] = useState(currentMember?.phone || (isDemoMode ? '9876543211' : ''))
-  const [flatNumber, setFlatNumber] = useState(currentMember?.flat_number || (isDemoMode ? 'B-302' : ''))
+  const [fullName, setFullName] = useState(currentMember?.full_name || '')
+  const [phone, setPhone] = useState(currentMember?.phone || '')
+  const [flatNumber, setFlatNumber] = useState(currentMember?.flat_number || '')
   const [saving, setSaving] = useState(false)
 
   const [notifAnnouncements, setNotifAnnouncements] = useState(true)
@@ -33,9 +32,9 @@ export default function SettingsPage() {
   const [notifChat, setNotifChat] = useState(false)
   const [notifBazaar, setNotifBazaar] = useState(true)
 
-  const societyName = currentSociety?.name || (isDemoMode ? 'Sunrise Heights' : 'N/A')
-  const societyAddress = currentSociety?.address || (isDemoMode ? '42, MG Road, Sector 15, Gurugram' : 'N/A')
-  const inviteCode = currentSociety?.invite_code || (isDemoMode ? 'SUNRISE24' : 'N/A')
+  const societyName = currentSociety?.name || 'N/A'
+  const societyAddress = currentSociety?.address || 'N/A'
+  const inviteCode = currentSociety?.invite_code || 'N/A'
 
   const handleSaveProfile = async () => {
     if (!fullName.trim()) {
@@ -44,10 +43,7 @@ export default function SettingsPage() {
     }
     setSaving(true)
     try {
-      if (isDemoMode) {
-        await new Promise((r) => setTimeout(r, 500))
-        toast.success('Profile updated successfully!')
-      } else if (currentMember) {
+      if (currentMember) {
         const supabase = createClient()
         const { error } = await supabase
           .from('members')
@@ -70,10 +66,8 @@ export default function SettingsPage() {
 
   const handleSignOut = async () => {
     try {
-      if (!isDemoMode) {
-        const supabase = createClient()
-        await supabase.auth.signOut()
-      }
+      const supabase = createClient()
+      await supabase.auth.signOut()
       useAppStore.getState().reset()
       router.push('/')
     } catch {

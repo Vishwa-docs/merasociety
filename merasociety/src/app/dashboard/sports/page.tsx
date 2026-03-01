@@ -5,79 +5,18 @@ import {
   Trophy,
   Calendar,
   Clock,
-  ChevronLeft,
-  ChevronRight,
   X,
-  MapPin,
   AlertTriangle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAppStore, useDemoStore } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
 import { formatTime, generateTimeSlots } from '@/lib/utils'
 import type { Court, Booking, BookingStatus } from '@/lib/types'
-import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import Badge from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
 import EmptyState from '@/components/ui/EmptyState'
-
-// Pre-seeded demo courts
-const DEMO_COURTS: Court[] = [
-  {
-    id: '00000000-0000-0000-0000-000000000101',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Badminton Court A',
-    sport: 'Badminton',
-    description: 'Indoor badminton court with professional flooring',
-    slot_duration_minutes: 60,
-    max_daily_hours_per_flat: 2,
-    open_time: '06:00',
-    close_time: '22:00',
-    is_active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000102',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Tennis Court',
-    sport: 'Tennis',
-    description: 'Outdoor tennis court with floodlights',
-    slot_duration_minutes: 60,
-    max_daily_hours_per_flat: 2,
-    open_time: '06:00',
-    close_time: '21:00',
-    is_active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000103',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Basketball Court',
-    sport: 'Basketball',
-    description: 'Full-size outdoor basketball court',
-    slot_duration_minutes: 60,
-    max_daily_hours_per_flat: 2,
-    open_time: '06:00',
-    close_time: '21:00',
-    is_active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000104',
-    society_id: '00000000-0000-0000-0000-000000000001',
-    name: 'Table Tennis',
-    sport: 'Table Tennis',
-    description: 'Indoor table tennis room with 2 tables',
-    slot_duration_minutes: 30,
-    max_daily_hours_per_flat: 2,
-    open_time: '07:00',
-    close_time: '22:00',
-    is_active: true,
-    created_at: new Date().toISOString(),
-  },
-]
 
 const sportEmoji: Record<string, string> = {
   Badminton: '🏸',
@@ -116,8 +55,7 @@ function isSlotPast(date: string, endTime: string): boolean {
 }
 
 export default function SportsPage() {
-  const { currentMember, currentSociety, isDemoMode } = useAppStore()
-  const demoStore = useDemoStore()
+  const { currentMember, currentSociety } = useAppStore()
 
   const [courts, setCourts] = useState<Court[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -136,15 +74,6 @@ export default function SportsPage() {
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
-
-      if (isDemoMode) {
-        if (!demoStore.initialized) demoStore.initialize()
-        setCourts(DEMO_COURTS)
-        setBookings(demoStore.bookings as unknown as Booking[])
-        setSelectedCourt(DEMO_COURTS[0])
-        setLoading(false)
-        return
-      }
 
       try {
         const supabase = createClient()
@@ -184,7 +113,7 @@ export default function SportsPage() {
     }
 
     fetchData()
-  }, [isDemoMode, currentSociety?.id, demoStore])
+  }, [currentSociety?.id])
 
   // Bookings for the selected court + date
   const dayBookings = useMemo(() => {
@@ -255,14 +184,13 @@ export default function SportsPage() {
 
   // Confirm booking
   const handleConfirmBooking = useCallback(async () => {
-    if (!bookingSlot || !selectedCourt || !currentMember) return
+    if (!bookingSlot || !selectedCourt || !currentMember || !currentSociety) return
     setConfirming(true)
 
     const bookingData = {
       court_id: selectedCourt.id,
       member_id: currentMember.id,
-      society_id:
-        currentSociety?.id || '00000000-0000-0000-0000-000000000001',
+      society_id: currentSociety.id,
       date: selectedDate,
       start_time: bookingSlot.start,
       end_time: bookingSlot.end,
@@ -271,38 +199,19 @@ export default function SportsPage() {
     }
 
     try {
-      if (isDemoMode) {
-        const newBooking: Booking = {
-          id: `demo-booking-${Date.now()}`,
-          ...bookingData,
-          member: {
-            id: currentMember.id,
-            full_name: currentMember.full_name,
-            flat_number: currentMember.flat_number,
-          } as Booking['member'],
-          court: {
-            id: selectedCourt.id,
-            name: selectedCourt.name,
-            sport: selectedCourt.sport,
-          } as Booking['court'],
-        }
-        setBookings((prev) => [...prev, newBooking])
-        demoStore.addItem('bookings', newBooking as unknown as Record<string, unknown>)
-      } else {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('bookings')
-          .insert(bookingData)
-          .select(`
-            *,
-            member:members!member_id(full_name, flat_number),
-            court:courts!court_id(name, sport)
-          `)
-          .single()
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert(bookingData)
+        .select(`
+          *,
+          member:members!member_id(full_name, flat_number),
+          court:courts!court_id(name, sport)
+        `)
+        .single()
 
-        if (error) throw error
-        setBookings((prev) => [...prev, data as Booking])
-      }
+      if (error) throw error
+      setBookings((prev) => [...prev, data as Booking])
 
       toast.success('Court booked!')
       setBookingSlot(null)
@@ -318,26 +227,12 @@ export default function SportsPage() {
     selectedDate,
     currentMember,
     currentSociety,
-    isDemoMode,
-    demoStore,
   ])
 
   // Cancel booking
   const handleCancelBooking = useCallback(
     async (bookingId: string) => {
       if (!confirm('Cancel this booking?')) return
-
-      if (isDemoMode) {
-        setBookings((prev) =>
-          prev.map((b) =>
-            b.id === bookingId
-              ? { ...b, status: 'cancelled' as BookingStatus }
-              : b
-          )
-        )
-        toast.success('Booking cancelled')
-        return
-      }
 
       try {
         const supabase = createClient()
@@ -359,7 +254,7 @@ export default function SportsPage() {
         toast.error('Failed to cancel')
       }
     },
-    [isDemoMode]
+    []
   )
 
   // My bookings split

@@ -2,15 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { Building2, Mail, Lock, User, Home, Phone, KeyRound, ArrowRight, CheckCircle } from 'lucide-react'
+import { Building2, Mail, Lock, User, Home, Phone, KeyRound, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 
 export default function SignupPage() {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
@@ -205,32 +203,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* Demo Button */}
-        <div className="mt-6 text-center">
-          <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-gradient-to-br from-teal-50 via-cyan-50 to-white px-3 text-sm text-gray-500">
-                or
-              </span>
-            </div>
-          </div>
 
-          <Button
-            variant="secondary"
-            size="lg"
-            className="w-full"
-            icon={<ArrowRight className="h-4 w-4" />}
-            onClick={() => router.push('/dashboard')}
-          >
-            Try Demo
-          </Button>
-          <p className="mt-2 text-xs text-gray-500">
-            No account needed — explore with sample data
-          </p>
-        </div>
       </div>
     </div>
   )
