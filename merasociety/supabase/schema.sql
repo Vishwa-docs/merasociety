@@ -372,20 +372,33 @@ exception when others then null;
 end $$;
 
 -- ============================================================
--- SEED DATA
+-- SEED DATA — Demo Society: Sunrise Heights
 -- ============================================================
 
--- The admin member (JackBright) is created via the create-admin script.
--- Their member ID is: a62ae5be-c4bd-48b0-aa86-0a207b6abcdf
--- We use this ID as the author for sample content below.
+-- The admin (Jack Bright) is created via the create-admin script.
+-- All other personas are display-only (user_id = NULL, cannot log in).
 
--- Insert society
+-- Society
 insert into societies (id, name, address, invite_code, settings) values
   ('00000000-0000-0000-0000-000000000001', 'Sunrise Heights', '42 MG Road, Bengaluru 560001', 'SUNRISE2024',
    '{"max_passes_per_day": 5, "maintenance_amount": 3500}')
 on conflict (id) do nothing;
 
--- Insert courts
+-- ── Demo Members (display-only, user_id NULL) ────────────────
+-- Jack Bright (admin) is inserted by the create-admin script with a real auth user.
+-- We add his record here with a fixed ID for FK references in seed data.
+-- The create-admin script will use its own ID; these are just for demo content FKs.
+insert into members (id, user_id, society_id, flat_number, full_name, phone, avatar_url, role, status, is_verified, created_at) values
+  ('00000000-0000-0000-0000-000000000a01', null, '00000000-0000-0000-0000-000000000001', 'B-202', 'Rajini Kanth', '+91 9876500001', '/avatars/rajini-kanth.avif', 'resident', 'approved', true, now() - interval '45 days'),
+  ('00000000-0000-0000-0000-000000000a02', null, '00000000-0000-0000-0000-000000000001', 'C-303', 'Virat Kohli', '+91 9876500002', '/avatars/virat-kohli.avif', 'resident', 'approved', true, now() - interval '40 days'),
+  ('00000000-0000-0000-0000-000000000a03', null, '00000000-0000-0000-0000-000000000001', 'A-102', 'Deepika Padukone', '+91 9876500003', '/avatars/deepika-padukone.webp', 'resident', 'approved', true, now() - interval '38 days'),
+  ('00000000-0000-0000-0000-000000000a04', null, '00000000-0000-0000-0000-000000000001', 'D-404', 'Shah Rukh Khan', '+91 9876500004', '/avatars/shah-rukh-khan.jpg', 'resident', 'approved', true, now() - interval '35 days'),
+  ('00000000-0000-0000-0000-000000000a05', null, '00000000-0000-0000-0000-000000000001', 'B-105', 'Anushka Sharma', '+91 9876500005', '/avatars/anushka-sharma.jpeg', 'resident', 'approved', true, now() - interval '30 days'),
+  ('00000000-0000-0000-0000-000000000a06', null, '00000000-0000-0000-0000-000000000001', 'Gate 1', 'Ramu Singh', '+91 9876500006', null, 'guard', 'approved', true, now() - interval '50 days'),
+  ('00000000-0000-0000-0000-000000000a07', null, '00000000-0000-0000-0000-000000000001', 'C-101', 'Tamannah Bhatia', '+91 9876500007', '/avatars/tamannah-bhatia.jpeg', 'resident', 'pending', false, now() - interval '2 days')
+on conflict (id) do nothing;
+
+-- ── Courts ───────────────────────────────────────────────────
 insert into courts (id, society_id, name, sport, description, slot_duration_minutes, max_daily_hours_per_flat) values
   ('00000000-0000-0000-0000-000000000101', '00000000-0000-0000-0000-000000000001', 'Badminton Court A', 'Badminton', 'Indoor badminton court with LED lighting', 60, 2),
   ('00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000000001', 'Tennis Court', 'Tennis', 'Outdoor tennis court with floodlights', 60, 2),
@@ -393,7 +406,7 @@ insert into courts (id, society_id, name, sport, description, slot_duration_minu
   ('00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000001', 'Table Tennis', 'Table Tennis', 'Indoor TT tables in recreation room', 30, 2)
 on conflict (id) do nothing;
 
--- Insert channels
+-- ── Chat Channels ────────────────────────────────────────────
 insert into channels (id, society_id, name, description, type) values
   ('00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000001', 'General', 'Society-wide discussions', 'general'),
   ('00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000001', 'Buy & Sell', 'Buy, sell, or exchange items', 'topic'),
@@ -401,4 +414,221 @@ insert into channels (id, society_id, name, description, type) values
   ('00000000-0000-0000-0000-000000000204', '00000000-0000-0000-0000-000000000001', 'Food Corner', 'Home food orders and offers', 'topic'),
   ('00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000001', 'Sports', 'Court bookings and sports discussions', 'topic'),
   ('00000000-0000-0000-0000-000000000206', '00000000-0000-0000-0000-000000000001', 'Maintenance', 'Society maintenance issues', 'topic')
+on conflict (id) do nothing;
+
+-- ── Announcements ────────────────────────────────────────────
+insert into announcements (id, society_id, author_id, title, content, is_pinned, priority, created_at) values
+  ('00000000-0000-0000-0000-000000000301',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a01',
+   'Water Tank Cleaning — March 5th',
+   'Dear residents, the overhead water tanks will be cleaned on March 5th from 9 AM to 3 PM. Please store enough water for the day. Sorry for any inconvenience.',
+   true, 'high', now() - interval '3 days'),
+
+  ('00000000-0000-0000-0000-000000000302',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a01',
+   'Holi Celebration at Clubhouse 🎨',
+   'We are organizing a Holi celebration at the clubhouse on March 14th! Colors, music, and snacks will be arranged. Kids'' games start at 10 AM, adults from 12 PM onwards. Bring your family and friends!',
+   false, 'normal', now() - interval '5 days'),
+
+  ('00000000-0000-0000-0000-000000000303',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a04',
+   'Parking Rules Reminder',
+   'Kindly park only in your allotted parking slots. Visitor vehicles must use the visitor lot near Gate 2. Cars parked in fire lanes will be towed without notice. Let''s keep the roads clear for everyone.',
+   false, 'normal', now() - interval '10 days'),
+
+  ('00000000-0000-0000-0000-000000000304',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a03',
+   'Monthly Maintenance Due — March 2026',
+   'Monthly maintenance of ₹3,500 is due by March 10th. You can pay via UPI to the society account or hand over a cheque at the office. Late payments will attract a ₹200 penalty.',
+   true, 'urgent', now() - interval '1 day'),
+
+  ('00000000-0000-0000-0000-000000000305',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a02',
+   'New Gym Equipment Installed! 💪',
+   'Great news! We have installed new treadmills and a lat pulldown machine in the gym. Please follow the gym rules poster on the wall. Wipe down equipment after use. Gym timings remain 5:30 AM to 10 PM.',
+   false, 'normal', now() - interval '7 days')
+on conflict (id) do nothing;
+
+-- Announcement comments
+insert into announcement_comments (id, announcement_id, author_id, content, created_at) values
+  ('00000000-0000-0000-0000-000000000c01', '00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-000000000a02', 'Thanks for the heads up! Will store water.', now() - interval '2 days 20 hours'),
+  ('00000000-0000-0000-0000-000000000c02', '00000000-0000-0000-0000-000000000301', '00000000-0000-0000-0000-000000000a03', 'Can we get an update once the cleaning is done?', now() - interval '2 days 18 hours'),
+  ('00000000-0000-0000-0000-000000000c03', '00000000-0000-0000-0000-000000000302', '00000000-0000-0000-0000-000000000a05', 'Excited! Are we doing a potluck this year too?', now() - interval '4 days'),
+  ('00000000-0000-0000-0000-000000000c04', '00000000-0000-0000-0000-000000000302', '00000000-0000-0000-0000-000000000a01', 'Yes potluck is on! Please sign up on the sheet at the notice board.', now() - interval '3 days 22 hours'),
+  ('00000000-0000-0000-0000-000000000c05', '00000000-0000-0000-0000-000000000305', '00000000-0000-0000-0000-000000000a02', 'Awesome! Been waiting for new treadmills.', now() - interval '6 days')
+on conflict (id) do nothing;
+
+-- ── Chat Messages (General channel) ─────────────────────────
+insert into messages (id, channel_id, sender_id, content, created_at) values
+  ('00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000a02', 'Good morning everyone! 🏏', now() - interval '2 days 8 hours'),
+  ('00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000a01', 'Morning! Beautiful day today.', now() - interval '2 days 7 hours 55 minutes'),
+  ('00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000a03', 'Has anyone seen the stray cat near B block? She had kittens!', now() - interval '2 days 6 hours'),
+  ('00000000-0000-0000-0000-000000000404', '00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000a05', 'Yes! They are so cute 🐱 I left some milk for them.', now() - interval '2 days 5 hours 30 minutes'),
+  ('00000000-0000-0000-0000-000000000405', '00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000a04', 'We should get them adopted. I can contact the local shelter.', now() - interval '2 days 5 hours'),
+  ('00000000-0000-0000-0000-000000000406', '00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000a01', 'That would be wonderful, Amit!', now() - interval '2 days 4 hours 45 minutes')
+on conflict (id) do nothing;
+
+-- Messages in Buy & Sell channel
+insert into messages (id, channel_id, sender_id, content, created_at) values
+  ('00000000-0000-0000-0000-000000000407', '00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000a03', 'Anyone interested in a barely used baby stroller? DM me.', now() - interval '3 days'),
+  ('00000000-0000-0000-0000-000000000408', '00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000a05', 'What brand is it? How old?', now() - interval '2 days 23 hours'),
+  ('00000000-0000-0000-0000-000000000409', '00000000-0000-0000-0000-000000000202', '00000000-0000-0000-0000-000000000a03', 'It''s a Luvlap Galaxy. Just 6 months old, perfect condition.', now() - interval '2 days 22 hours')
+on conflict (id) do nothing;
+
+-- Messages in Sports channel
+insert into messages (id, channel_id, sender_id, content, created_at) values
+  ('00000000-0000-0000-0000-000000000410', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a02', 'Anyone up for badminton this evening? 6 PM?', now() - interval '1 day 8 hours'),
+  ('00000000-0000-0000-0000-000000000411', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a04', 'I''m in! Let me book Court A.', now() - interval '1 day 7 hours 30 minutes'),
+  ('00000000-0000-0000-0000-000000000412', '00000000-0000-0000-0000-000000000205', '00000000-0000-0000-0000-000000000a01', 'Count me in too 🏸', now() - interval '1 day 7 hours')
+on conflict (id) do nothing;
+
+-- ── Bazaar Listings ──────────────────────────────────────────
+insert into listings (id, society_id, author_id, title, description, category, price, tags, status, contact_info, created_at) values
+  ('00000000-0000-0000-0000-000000000501',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a03',
+   'Baby Stroller — Luvlap Galaxy',
+   'Barely used Luvlap Galaxy stroller in excellent condition. 3-position recline, mosquito net, rain cover included. Original price ₹4,500, selling for ₹2,500.',
+   'buy_sell', 2500, '{"baby", "stroller", "luvlap"}', 'active',
+   'Call/WhatsApp: +91 9876500003 (Deepika, A-102)',
+   now() - interval '5 days'),
+
+  ('00000000-0000-0000-0000-000000000502',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a02',
+   'Cricket Coaching for Kids',
+   'I coach kids (ages 8-14) every Saturday at the basketball court. Focus on batting, bowling, and fielding basics. Free for society members! Bring your own kit.',
+   'services', 0, '{"cricket", "coaching", "kids", "sports"}', 'active',
+   'Contact: Virat (C-303) — just drop by on Saturday 7 AM',
+   now() - interval '12 days'),
+
+  ('00000000-0000-0000-0000-000000000503',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a05',
+   'Home-made Chettinad Meals',
+   'Offering fresh home-cooked Chettinad-style lunch and dinner. Menu changes daily — rice, sambar, rasam, kootu, poriyal, and non-veg specials on weekends. Order before 10 AM for lunch, 5 PM for dinner.',
+   'food', 150, '{"food", "chettinad", "homemade", "meals"}', 'active',
+   'WhatsApp: +91 9876500005 (Deepa, B-105)',
+   now() - interval '8 days'),
+
+  ('00000000-0000-0000-0000-000000000504',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a04',
+   'Reliable Plumber — Venkatesh',
+   'Sharing contact of an excellent plumber. Fixed our kitchen leak in 30 mins, charges reasonable. Venkatesh — +91 98765 43210. He services our area on Tues/Thurs.',
+   'services', 0, '{"plumber", "recommendation", "home repair"}', 'active',
+   'Mention you are from Sunrise Heights for priority.',
+   now() - interval '15 days'),
+
+  ('00000000-0000-0000-0000-000000000505',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a01',
+   'Samsung 32" LED TV — Moving Sale',
+   'Shifting out overseas, selling my Samsung 32" LED TV. 2023 model, perfect working condition with original remote and box. ₹8,000 firm.',
+   'buy_sell', 8000, '{"tv", "samsung", "electronics", "moving sale"}', 'active',
+   'Rajini (B-202) — evenings after 7 PM',
+   now() - interval '3 days'),
+
+  ('00000000-0000-0000-0000-000000000506',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a05',
+   'Weekend Biryani Orders 🍗',
+   'Taking orders for Hyderabadi Dum Biryani every Saturday. Chicken ₹250 per plate, Mutton ₹350. Minimum order 2 plates. Order by Thursday evening.',
+   'food', 250, '{"biryani", "hyderabadi", "weekend", "non-veg"}', 'active',
+   'Deepa (B-105) — WhatsApp only',
+   now() - interval '6 days')
+on conflict (id) do nothing;
+
+-- ── Visitor Passes ───────────────────────────────────────────
+insert into visitor_passes (id, society_id, created_by, visitor_name, visitor_phone, pass_type, pass_code, purpose, expected_date, expected_time_start, expected_time_end, status, verified_by, verified_at, created_at) values
+  ('00000000-0000-0000-0000-000000000601',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a03',
+   'Ramesh Kumar', '+91 9988776655', 'guest', 'A1B2C3',
+   'Dinner at our home', current_date, '18:00', '22:00',
+   'active', null, null, now() - interval '4 hours'),
+
+  ('00000000-0000-0000-0000-000000000602',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a04',
+   'QuickFix Electricals', '+91 9112233445', 'contractor', 'D4E5F6',
+   'AC servicing for D-404', current_date + interval '1 day', '10:00', '13:00',
+   'active', null, null, now() - interval '2 hours'),
+
+  ('00000000-0000-0000-0000-000000000603',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a01',
+   'Swiggy Delivery', null, 'delivery', 'G7H8I9',
+   'Food delivery', current_date - interval '1 day', '19:00', '19:30',
+   'used', '00000000-0000-0000-0000-000000000a06', now() - interval '1 day 5 hours', now() - interval '1 day 6 hours'),
+
+  ('00000000-0000-0000-0000-000000000604',
+   '00000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-000000000a02',
+   'Mom & Dad', '+91 9900112233', 'guest', 'J1K2L3',
+   'Weekend visit', current_date + interval '2 days', '09:00', '21:00',
+   'active', null, null, now() - interval '1 day')
+on conflict (id) do nothing;
+
+-- ── Bookings ─────────────────────────────────────────────────
+insert into bookings (id, court_id, member_id, society_id, date, start_time, end_time, status, created_at) values
+  ('00000000-0000-0000-0000-000000000701',
+   '00000000-0000-0000-0000-000000000101',
+   '00000000-0000-0000-0000-000000000a02',
+   '00000000-0000-0000-0000-000000000001',
+   current_date, '18:00', '19:00', 'confirmed', now() - interval '1 day'),
+
+  ('00000000-0000-0000-0000-000000000702',
+   '00000000-0000-0000-0000-000000000101',
+   '00000000-0000-0000-0000-000000000a04',
+   '00000000-0000-0000-0000-000000000001',
+   current_date, '19:00', '20:00', 'confirmed', now() - interval '1 day'),
+
+  ('00000000-0000-0000-0000-000000000703',
+   '00000000-0000-0000-0000-000000000102',
+   '00000000-0000-0000-0000-000000000a01',
+   '00000000-0000-0000-0000-000000000001',
+   current_date + interval '1 day', '07:00', '08:00', 'confirmed', now() - interval '6 hours'),
+
+  ('00000000-0000-0000-0000-000000000704',
+   '00000000-0000-0000-0000-000000000104',
+   '00000000-0000-0000-0000-000000000a03',
+   '00000000-0000-0000-0000-000000000001',
+   current_date - interval '1 day', '17:00', '17:30', 'completed', now() - interval '2 days')
+on conflict (id) do nothing;
+
+-- ── Notifications ────────────────────────────────────────────
+-- These will show up for the admin (Jack Bright) when we link his real member record.
+-- For demo, we attach them to the demo personas so the data exists.
+insert into notifications (id, member_id, society_id, title, body, type, is_read, link, created_at) values
+  ('00000000-0000-0000-0000-000000000801', '00000000-0000-0000-0000-000000000a01', '00000000-0000-0000-0000-000000000001', 'New listing posted', 'Deepika Padukone posted "Baby Stroller — Luvlap Galaxy" in Bazaar.', 'listing', false, '/dashboard/bazaar', now() - interval '5 days'),
+  ('00000000-0000-0000-0000-000000000802', '00000000-0000-0000-0000-000000000a02', '00000000-0000-0000-0000-000000000001', 'Court booked', 'Your Badminton Court A booking for today 6-7 PM is confirmed.', 'booking', true, '/dashboard/sports', now() - interval '1 day'),
+  ('00000000-0000-0000-0000-000000000803', '00000000-0000-0000-0000-000000000a03', '00000000-0000-0000-0000-000000000001', 'Visitor pass used', 'Swiggy Delivery pass (G7H8I9) was verified by security.', 'visitor', true, '/dashboard/security', now() - interval '1 day 5 hours'),
+  ('00000000-0000-0000-0000-000000000804', '00000000-0000-0000-0000-000000000a01', '00000000-0000-0000-0000-000000000001', 'New member request', 'Tamannah Bhatia (C-101) is waiting for approval.', 'member', false, '/dashboard/admin', now() - interval '2 days'),
+  ('00000000-0000-0000-0000-000000000805', '00000000-0000-0000-0000-000000000a04', '00000000-0000-0000-0000-000000000001', 'Maintenance due', 'Monthly maintenance of ₹3,500 is due by March 10th.', 'payment', false, '/dashboard/announcements', now() - interval '1 day'),
+  ('00000000-0000-0000-0000-000000000806', '00000000-0000-0000-0000-000000000a02', '00000000-0000-0000-0000-000000000001', 'Comment on your announcement', 'Virat Kohli commented on "New Gym Equipment Installed!"', 'announcement', false, '/dashboard/announcements', now() - interval '6 days')
+on conflict (id) do nothing;
+
+-- ── Feedback ─────────────────────────────────────────────────
+insert into feedback (id, society_id, member_id, type, title, description, status, created_at) values
+  ('00000000-0000-0000-0000-000000000901', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a04', 'complaint', 'Noisy construction near D block', 'Construction workers start drilling at 7 AM on weekends. Can we enforce a 9 AM start time on Sat/Sun?', 'open', now() - interval '4 days'),
+  ('00000000-0000-0000-0000-000000000902', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a03', 'feature', 'Add EV charging stations', 'Many residents now have electric cars. Can we install 2-3 EV charging points in the parking area?', 'in_progress', now() - interval '10 days'),
+  ('00000000-0000-0000-0000-000000000903', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a05', 'general', 'Appreciation for gardening team', 'The gardens look beautiful this season. Kudos to the gardening team for the great work!', 'resolved', now() - interval '20 days'),
+  ('00000000-0000-0000-0000-000000000904', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a02', 'bug', 'Elevator B stuck on 3rd floor', 'Elevator in B block has been stuck on the 3rd floor since yesterday. Buttons don''t respond. Please get it serviced ASAP.', 'in_progress', now() - interval '1 day')
+on conflict (id) do nothing;
+
+-- ── Audit Log ────────────────────────────────────────────────
+insert into audit_log (id, society_id, member_id, action, entity_type, entity_id, created_at) values
+  ('00000000-0000-0000-0000-000000000b01', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a01', 'Member approved: Virat Kohli (C-303)', 'member', '00000000-0000-0000-0000-000000000a02', now() - interval '40 days'),
+  ('00000000-0000-0000-0000-000000000b02', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a01', 'Member approved: Deepika Padukone (A-102)', 'member', '00000000-0000-0000-0000-000000000a03', now() - interval '38 days'),
+  ('00000000-0000-0000-0000-000000000b03', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a01', 'Member approved: Shah Rukh Khan (D-404)', 'member', '00000000-0000-0000-0000-000000000a04', now() - interval '35 days'),
+  ('00000000-0000-0000-0000-000000000b04', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a01', 'Member approved: Anushka Sharma (B-105)', 'member', '00000000-0000-0000-0000-000000000a05', now() - interval '30 days'),
+  ('00000000-0000-0000-0000-000000000b05', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a01', 'Announcement created: Water Tank Cleaning', 'announcement', '00000000-0000-0000-0000-000000000301', now() - interval '3 days'),
+  ('00000000-0000-0000-0000-000000000b06', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a06', 'Visitor pass verified: Swiggy Delivery (G7H8I9)', 'visitor_pass', '00000000-0000-0000-0000-000000000603', now() - interval '1 day 5 hours'),
+  ('00000000-0000-0000-0000-000000000b07', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000a02', 'Booking created: Badminton Court A, today 6-7 PM', 'booking', '00000000-0000-0000-0000-000000000701', now() - interval '1 day')
 on conflict (id) do nothing;

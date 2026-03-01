@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { Building2, Mail, Lock, User, Home, Phone, KeyRound, CheckCircle } from 'lucide-react'
+import { Building2, Mail, Lock, User, Home, Phone, KeyRound, CheckCircle, Sparkles, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -123,6 +123,20 @@ export default function SignupPage() {
 
         {/* Card */}
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+          {/* Demo Society Banner */}
+          <div className="mb-6 rounded-xl bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 p-4">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-teal-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-teal-800">Try the Demo Society</p>
+                <p className="mt-1 text-xs text-teal-700">
+                  Use invite code <span className="font-mono font-bold bg-teal-100 px-1.5 py-0.5 rounded">SUNRISE2024</span> to
+                  join <strong>Sunrise Heights</strong> — a pre-populated demo society with sample data.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Full Name"
@@ -203,8 +217,25 @@ export default function SignupPage() {
           </div>
         </div>
 
-
-      </div>
+        {/* Register Your Society */}
+        <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <Send className="h-5 w-5 text-gray-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Want to register your society?</p>
+              <p className="mt-1 text-xs text-gray-600">
+                Email us at{' '}
+                <a
+                  href="mailto:vishwakumaresh@gmail.com?subject=New Society Registration"
+                  className="font-medium text-teal-600 hover:text-teal-700 underline underline-offset-2"
+                >
+                  vishwakumaresh@gmail.com
+                </a>{' '}
+                and we&apos;ll set you up as a society admin with your own invite code.
+              </p>
+            </div>
+          </div>
+        </div>      </div>
     </div>
   )
 }

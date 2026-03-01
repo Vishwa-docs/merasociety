@@ -65,63 +65,87 @@ const { createClient } = await import('@supabase/supabase-js')
 async function main() {
   console.log('=== MeraSociety Admin Account Setup ===\n')
 
-  // Step 1: Sign up user via anon client
+  // Step 1: Create user via Admin API (preferred) or sign up via anon client
   console.log('1. Creating user account...')
-  const anonClient = createClient(SUPABASE_URL, ANON_KEY)
 
-  const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } },
-  })
+  let userId
 
-  let userId = signUpData?.user?.id
+  if (SERVICE_KEY) {
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
 
-  if (signUpError) {
-    if (signUpError.message.includes('already')) {
-      console.log('   User already exists — signing in...')
-      const { data, error } = await anonClient.auth.signInWithPassword({ email, password })
-      if (error) {
-        console.error('   Sign-in failed:', error.message)
+    // Try to create via admin API (auto-confirms email)
+    const { data: adminData, error: adminError } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    })
+
+    if (adminError) {
+      if (adminError.message.includes('already') || adminError.message.includes('exists')) {
+        console.log('   User already exists — looking up...')
+        const { data: listData } = await adminClient.auth.admin.listUsers()
+        const existing = listData?.users?.find((u) => u.email === email)
+        if (existing) {
+          userId = existing.id
+        } else {
+          console.error('   Could not find existing user')
+          process.exit(1)
+        }
+      } else {
+        console.error('   Admin create failed:', adminError.message)
         process.exit(1)
       }
-      userId = data.user.id
     } else {
-      console.error('   Signup failed:', signUpError.message)
-      process.exit(1)
+      userId = adminData.user.id
+    }
+  } else {
+    // Fallback: sign up via anon client
+    const anonClient = createClient(SUPABASE_URL, ANON_KEY)
+    const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    })
+
+    if (signUpError) {
+      if (signUpError.message.includes('already')) {
+        console.log('   User already exists — signing in...')
+        const { data, error } = await anonClient.auth.signInWithPassword({ email, password })
+        if (error) {
+          console.error('   Sign-in failed:', error.message)
+          process.exit(1)
+        }
+        userId = data.user.id
+      } else {
+        console.error('   Signup failed:', signUpError.message)
+        process.exit(1)
+      }
+    } else {
+      userId = signUpData?.user?.id
     }
   }
 
   console.log('   User ID:', userId)
 
-  // Step 2: Confirm email if service key available
-  if (SERVICE_KEY) {
-    console.log('\n2. Confirming email via Admin API...')
-    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-    const { error } = await adminClient.auth.admin.updateUserById(userId, {
-      email_confirm: true,
-    })
-    if (error) {
-      console.log('   Warning: Could not auto-confirm email:', error.message)
-      console.log('   Confirm manually in Supabase Dashboard > Auth > Users')
-    } else {
-      console.log('   Email confirmed!')
-    }
+  // Step 2: Confirm email (only needed when using anon client fallback)
+  if (!SERVICE_KEY) {
+    console.log('\n2. No SUPABASE_SERVICE_ROLE_KEY — confirm email manually in Supabase Dashboard > Auth > Users')
   } else {
-    console.log('\n2. No SUPABASE_SERVICE_ROLE_KEY — confirm email manually in Supabase Dashboard')
+    console.log('\n2. Email auto-confirmed via Admin API ✓')
   }
 
   // Step 3: Ensure member record
   console.log('\n3. Setting up admin member record...')
 
-  // Use service key to bypass RLS
-  const client = SERVICE_KEY
-    ? createClient(SUPABASE_URL, SERVICE_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
-    : anonClient
+  // Use service key to bypass RLS, or fall back to anon key
+  const client = createClient(
+    SUPABASE_URL,
+    SERVICE_KEY || ANON_KEY,
+    SERVICE_KEY ? { auth: { autoRefreshToken: false, persistSession: false } } : undefined,
+  )
 
   // Check existing member
   const { data: existing } = await client
