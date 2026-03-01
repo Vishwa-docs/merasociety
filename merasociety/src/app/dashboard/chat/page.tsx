@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
-import type { Channel, Message } from '@/lib/types'
+import type { Channel, Member, Message } from '@/lib/types'
 import { Avatar } from '@/components/ui/Avatar'
 import EmptyState from '@/components/ui/EmptyState'
 import toast from 'react-hot-toast'
