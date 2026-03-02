@@ -4,7 +4,7 @@
 
 A verified, private mini-social network for apartment societies — replacing chaotic WhatsApp groups with structured, searchable workflows.
 
-**[Live Demo →](https://merasociety.vercel.app)** | **[Read the Blog Post →](#)**
+**[Live Demo →](https://merasociety.vercel.app)** | **[Read the Blog Post →](https://dev.to/jackbright/merasociety-i-turned-my-apartment-societys-whatsapp-chaos-into-a-real-app-4o85)** | **[Watch on YouTube →](https://www.youtube.com/watch?v=6TNUxPRyHKA)** 
 
 ## Quick Start
 
